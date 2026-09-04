@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from mewcode.tools.edit_file import EditFile, Params
+from lumo.tools.edit_file import EditFile, Params
 
 
 @pytest.mark.asyncio

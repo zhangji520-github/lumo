@@ -6,21 +6,21 @@ import sys
 
 import pytest
 
-from mewcode.config import AppConfig, MCPServerConfig, ProviderConfig
-from mewcode.memory.session import SessionManager
-from mewcode.runtime.builtins import CODING_SCENARIO, OFFICE_SCENARIO
-from mewcode.runtime.cli_provider import CliTool, parse_cli_definition
-from mewcode.runtime.errors import CapabilityUnavailableError, ScenarioValidationError
-from mewcode.runtime.models import RuntimeSpec
-from mewcode.runtime.packs import create_registry_for_spec
-from mewcode.runtime.resolver import ScenarioResolver
-from mewcode.runtime.scenario_loader import (
+from lumo.config import AppConfig, MCPServerConfig, ProviderConfig
+from lumo.memory.session import SessionManager
+from lumo.runtime.builtins import CODING_SCENARIO, OFFICE_SCENARIO
+from lumo.runtime.cli_provider import CliTool, parse_cli_definition
+from lumo.runtime.errors import CapabilityUnavailableError, ScenarioValidationError
+from lumo.runtime.models import RuntimeSpec
+from lumo.runtime.packs import create_registry_for_spec
+from lumo.runtime.resolver import ScenarioResolver
+from lumo.runtime.scenario_loader import (
     ScenarioLoader,
     parse_scenario,
     scenario_to_dict,
 )
-from mewcode.tools import ToolOrigin, ToolRegistry
-from mewcode.tools.base import Tool, ToolResult
+from lumo.tools import ToolOrigin, ToolRegistry
+from lumo.tools.base import Tool, ToolResult
 from pydantic import BaseModel
 
 
@@ -59,8 +59,8 @@ def test_office_has_no_coding_tools(tmp_path: Path) -> None:
 
 def test_prompt_experience_matches_office_runtime(tmp_path: Path) -> None:
     from unittest.mock import MagicMock
-    from mewcode.agent import Agent
-    from mewcode.prompts import build_system_prompt
+    from lumo.agent import Agent
+    from lumo.prompts import build_system_prompt
 
     spec = ScenarioResolver(_config(), str(tmp_path)).resolve("office")
     agent = Agent(
@@ -91,8 +91,8 @@ def test_prompt_experience_matches_office_runtime(tmp_path: Path) -> None:
 
 def test_prompt_experience_matches_coding_runtime(tmp_path: Path) -> None:
     from unittest.mock import MagicMock
-    from mewcode.agent import Agent
-    from mewcode.prompts import build_system_prompt
+    from lumo.agent import Agent
+    from lumo.prompts import build_system_prompt
 
     spec = ScenarioResolver(_config(), str(tmp_path)).resolve("coding")
     agent = Agent(
@@ -125,7 +125,7 @@ def test_scenario_parser_rejects_bypass() -> None:
 def test_project_scenario_overrides_user_and_builtin(tmp_path: Path) -> None:
     loader = ScenarioLoader(str(tmp_path))
     loader.user_dir = tmp_path / "user"
-    loader.project_dir = tmp_path / ".mewcode" / "scenarios"
+    loader.project_dir = tmp_path / ".lumo" / "scenarios"
     loader.user_dir.mkdir(parents=True)
     loader.project_dir.mkdir(parents=True)
     user = scenario_to_dict(CODING_SCENARIO)
@@ -157,8 +157,8 @@ def test_directory_scenario_package_loads_prompt_and_conflicts(
     tmp_path: Path,
 ) -> None:
     from dataclasses import replace
-    from mewcode.runtime.models import ScenarioExperience
-    from mewcode.runtime.scenario_package import ScenarioPackageWriter
+    from lumo.runtime.models import ScenarioExperience
+    from lumo.runtime.scenario_package import ScenarioPackageWriter
 
     writer = ScenarioPackageWriter(str(tmp_path))
     writer.user_root = tmp_path / "user"
@@ -200,8 +200,8 @@ def test_directory_scenario_package_loads_prompt_and_conflicts(
 
 def test_scenario_package_rejects_inline_secret(tmp_path: Path) -> None:
     from dataclasses import replace
-    from mewcode.runtime.models import CapabilityRef
-    from mewcode.runtime.scenario_package import ScenarioPackageWriter
+    from lumo.runtime.models import CapabilityRef
+    from lumo.runtime.scenario_package import ScenarioPackageWriter
 
     definition = replace(
         OFFICE_SCENARIO,
@@ -217,16 +217,16 @@ def test_scenario_package_rejects_inline_secret(tmp_path: Path) -> None:
 
 
 def test_proposal_compiler_uses_only_catalog_capabilities() -> None:
-    from mewcode.runtime.models import (
+    from lumo.runtime.models import (
         CapabilityDescriptor,
         CapabilityKind,
         ScenarioExperience,
     )
-    from mewcode.scenario_designer.models import (
+    from lumo.scenario_designer.models import (
         ProposedCapability,
         ScenarioProposal,
     )
-    from mewcode.scenario_designer.proposal_compiler import ProposalCompiler
+    from lumo.scenario_designer.proposal_compiler import ProposalCompiler
 
     catalog = [
         CapabilityDescriptor(
@@ -268,12 +268,12 @@ def test_proposal_compiler_uses_only_catalog_capabilities() -> None:
 
 
 def test_scenario_patch_preserves_unrequested_fields() -> None:
-    from mewcode.runtime.models import (
+    from lumo.runtime.models import (
         CapabilityDescriptor,
         CapabilityKind,
     )
-    from mewcode.scenario_designer.models import ScenarioPatch
-    from mewcode.scenario_designer.proposal_compiler import ProposalCompiler
+    from lumo.scenario_designer.models import ScenarioPatch
+    from lumo.scenario_designer.proposal_compiler import ProposalCompiler
 
     catalog = [
         CapabilityDescriptor(
@@ -303,7 +303,7 @@ def test_scenario_prompt_participates_in_runtime_fingerprint(
     tmp_path: Path,
 ) -> None:
     from dataclasses import replace
-    from mewcode.runtime.models import ScenarioExperience
+    from lumo.runtime.models import ScenarioExperience
 
     first = replace(
         OFFICE_SCENARIO,
@@ -408,7 +408,7 @@ def test_cli_definition_rejects_shell_executable() -> None:
 def test_invalid_unselected_cli_does_not_break_scenario(
     tmp_path: Path,
 ) -> None:
-    cli_dir = tmp_path / ".mewcode" / "cli-tools"
+    cli_dir = tmp_path / ".lumo" / "cli-tools"
     cli_dir.mkdir(parents=True)
     (cli_dir / "broken.yaml").write_text("id: broken\n", encoding="utf-8")
     spec = ScenarioResolver(_config(), str(tmp_path)).resolve("office")
@@ -436,13 +436,13 @@ def test_registry_duplicate_reports_origins() -> None:
 
 
 def test_os_sandbox_does_not_auto_allow_external_command(tmp_path: Path) -> None:
-    from mewcode.permissions import (
+    from lumo.permissions import (
         DangerousCommandDetector,
         PathSandbox,
         PermissionChecker,
         RuleEngine,
     )
-    from mewcode.tools.base import PermissionTarget
+    from lumo.tools.base import PermissionTarget
 
     class ExternalTool(_Tool):
         name = "ExternalCommand"
@@ -461,13 +461,13 @@ def test_os_sandbox_does_not_auto_allow_external_command(tmp_path: Path) -> None
 
 
 def test_all_structured_local_targets_are_sandbox_checked(tmp_path: Path) -> None:
-    from mewcode.permissions import (
+    from lumo.permissions import (
         DangerousCommandDetector,
         PathSandbox,
         PermissionChecker,
         RuleEngine,
     )
-    from mewcode.tools.base import PermissionTarget
+    from lumo.tools.base import PermissionTarget
 
     class MultiPathTool(_Tool):
         name = "MultiPath"
@@ -490,8 +490,8 @@ def test_all_structured_local_targets_are_sandbox_checked(tmp_path: Path) -> Non
 
 
 def test_capability_catalog_exposes_pack_and_mcp(tmp_path: Path) -> None:
-    from mewcode.runtime.catalog import CapabilityCatalog
-    from mewcode.runtime.models import CapabilityKind
+    from lumo.runtime.catalog import CapabilityCatalog
+    from lumo.runtime.models import CapabilityKind
 
     catalog = CapabilityCatalog(
         _config(MCPServerConfig(name="docs", command="docs-mcp")),
@@ -503,7 +503,7 @@ def test_capability_catalog_exposes_pack_and_mcp(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_plugin_setup_validates_config_and_tracks_origin(tmp_path: Path) -> None:
-    from mewcode.runtime.plugin_provider import PluginDescriptor, setup_plugin
+    from lumo.runtime.plugin_provider import PluginDescriptor, setup_plugin
 
     class Handle:
         closed = False
@@ -560,7 +560,7 @@ def test_runtime_snapshot_redacts_secrets() -> None:
     assert env_ref in rendered
 
     from dataclasses import replace
-    from mewcode.runtime.models import CapabilityRef
+    from lumo.runtime.models import CapabilityRef
     scenario = replace(
         CODING_SCENARIO,
         plugins=(
@@ -598,7 +598,7 @@ def test_session_records_runtime_identity(tmp_path: Path) -> None:
 
 
 def test_memory_namespace_isolated_by_scenario(tmp_path: Path) -> None:
-    from mewcode.memory import MemoryManager
+    from lumo.memory import MemoryManager
 
     coding = MemoryManager(str(tmp_path), namespace="coding")
     office = MemoryManager(str(tmp_path), namespace="office")
@@ -612,11 +612,11 @@ async def test_tui_starts_with_scenario_launcher(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from mewcode.app import MewCodeApp
+    from lumo.app import LumoApp
 
     monkeypatch.chdir(tmp_path)
     config = _config()
-    app = MewCodeApp(
+    app = LumoApp(
         providers=config.providers,
         app_config=config,
         scenario_id=None,
@@ -632,12 +632,12 @@ async def test_tui_builds_selected_office_runtime(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from mewcode.app import MewCodeApp
+    from lumo.app import LumoApp
 
     monkeypatch.chdir(tmp_path)
     config = _config()
     config.providers[0].api_key = "test-key"
-    app = MewCodeApp(
+    app = LumoApp(
         providers=config.providers,
         app_config=config,
         scenario_id="office",
@@ -658,13 +658,13 @@ async def test_shift_tab_cycles_permission_mode_with_visible_feedback(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from mewcode.app import MewCodeApp
-    from mewcode.permissions import PermissionMode
+    from lumo.app import LumoApp
+    from lumo.permissions import PermissionMode
 
     monkeypatch.chdir(tmp_path)
     config = _config()
     config.providers[0].api_key = "test-key"
-    app = MewCodeApp(
+    app = LumoApp(
         providers=config.providers,
         app_config=config,
         scenario_id="coding",
@@ -692,12 +692,12 @@ async def test_scenario_switch_shows_comparison_before_restart(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from mewcode.app import MewCodeApp
+    from lumo.app import LumoApp
 
     monkeypatch.chdir(tmp_path)
     config = _config()
     config.providers[0].api_key = "test-key"
-    app = MewCodeApp(
+    app = LumoApp(
         providers=config.providers,
         app_config=config,
         scenario_id="coding",
@@ -740,16 +740,16 @@ async def test_model_assisted_scenario_creation_opens_review(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from mewcode.app import MewCodeApp
-    from mewcode.runtime.models import (
+    from lumo.app import LumoApp
+    from lumo.runtime.models import (
         CapabilityKind,
         ScenarioExperience,
     )
-    from mewcode.scenario_designer.models import (
+    from lumo.scenario_designer.models import (
         ProposedCapability,
         ScenarioProposal,
     )
-    from mewcode.scenario_designer.service import ScenarioDesignerService
+    from lumo.scenario_designer.service import ScenarioDesignerService
 
     async def fake_propose(self, description, client, protocol):
         return ScenarioProposal(
@@ -774,7 +774,7 @@ async def test_model_assisted_scenario_creation_opens_review(
     monkeypatch.chdir(tmp_path)
     config = _config()
     config.providers[0].api_key = "test-key"
-    app = MewCodeApp(
+    app = LumoApp(
         providers=config.providers,
         app_config=config,
         scenario_id="coding",

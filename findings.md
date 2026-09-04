@@ -1,31 +1,31 @@
 # Findings
 
 ## Initial observations
-- MewCode already contains dedicated modules for agents/task coordination, model clients, tools, MCP, skills, permissions, and sandboxing.
+- Lumo already contains dedicated modules for agents/task coordination, model clients, tools, MCP, skills, permissions, and sandboxing.
 - The likely minimum change is a declarative assembly layer over existing modules, not conversion of every component into a Cordis-style plugin.
 - DeepSeek Harness composes a runtime from ordered profile/bundle/config layers; the useful idea is composition and capability seams, while Cordis lifecycle/reversible effects are a larger commitment.
 - DeepSeek's documented extension rule is "plugins, not loop changes": model providers, tools, filesystem/sandbox providers, prompts, and UI attach outside the default agent loop.
-- MewCode already centralizes model-facing capabilities in `ToolRegistry`, including enable/disable and deferred schema discovery. This is a natural activation point for scenario profiles.
-- MewCode's agent loop already places hook checks and permission checks before `Tool.execute`, so a composition layer can preserve the existing execution and security pipeline.
-- The main assembly is currently concentrated in `MewCodeApp._select_provider()`: it creates the model client, permission checker, sandbox attachment, registry extras, Agent, Skill loader, Worktree, subagents, teams, and later MCP integration. This is an implicit runtime builder embedded in the UI class.
+- Lumo already centralizes model-facing capabilities in `ToolRegistry`, including enable/disable and deferred schema discovery. This is a natural activation point for scenario profiles.
+- Lumo's agent loop already places hook checks and permission checks before `Tool.execute`, so a composition layer can preserve the existing execution and security pipeline.
+- The main assembly is currently concentrated in `LumoApp._select_provider()`: it creates the model client, permission checker, sandbox attachment, registry extras, Agent, Skill loader, Worktree, subagents, teams, and later MCP integration. This is an implicit runtime builder embedded in the UI class.
 - `create_default_registry()` hard-codes a coding-oriented baseline (`ReadFile`, `WriteFile`, `EditFile`, `Bash`, `Glob`, `Grep`). A scenario profile can replace this factory input without changing the loop.
 - Agent definitions already support per-agent tool allow/deny lists, but MCP tools are currently always passed through by `resolve_agent_tools()`. This is convenient for coding but unsafe/too broad for office scenario least-privilege profiles.
-- DeepSeek's boot profile is much more than a list of tools: ordered bundle layers, patches, config validation, lifecycle/disposal, isolation realms, and startup invariants. MewCode does not need all of this for the requested small optimization.
-- MewCode already has ordered configuration layers (`~/.mewcode/config.yaml`, project config, local config), so profile selection can reuse the current configuration system rather than introducing Cordis-style patch files.
-- DeepSeek agent presets scope tools and prompt sections per agent and prevent mid-history composition switches. For a minimal MewCode version, profiles should be fixed when the runtime/session starts; dynamic switching can be deferred.
+- DeepSeek's boot profile is much more than a list of tools: ordered bundle layers, patches, config validation, lifecycle/disposal, isolation realms, and startup invariants. Lumo does not need all of this for the requested small optimization.
+- Lumo already has ordered configuration layers (`~/.lumo/config.yaml`, project config, local config), so profile selection can reuse the current configuration system rather than introducing Cordis-style patch files.
+- DeepSeek agent presets scope tools and prompt sections per agent and prevent mid-history composition switches. For a minimal Lumo version, profiles should be fixed when the runtime/session starts; dynamic switching can be deferred.
 - The same runtime assembly is duplicated in the TUI and headless CLI, and appears again in `remote.py`. Extracting a builder provides immediate maintenance value even before office plugins exist.
 
 ## Evidence
-- `mewcode/tools/__init__.py`: `ToolRegistry` owns registration, enable/disable, deferred discovery, and schema assembly; `create_default_registry()` hard-codes the coding tools.
-- `mewcode/agent.py`: the loop assembles tool schemas from the registry and routes calls through hook, permission, validation, and execution stages.
+- `lumo/tools/__init__.py`: `ToolRegistry` owns registration, enable/disable, deferred discovery, and schema assembly; `create_default_registry()` hard-codes the coding tools.
+- `lumo/agent.py`: the loop assembles tool schemas from the registry and routes calls through hook, permission, validation, and execution stages.
 - `deepseek-harness/docs/architecture.md`: profiles stack bundles and patches; capabilities are separated into Definition/Provider/Consumer roles and attach on documented extension points.
-- `mewcode/app.py:621`: the UI constructor creates the default registry directly.
-- `mewcode/app.py:704`: `_select_provider()` begins the runtime assembly path.
-- `mewcode/app.py:719`: the existing permission pipeline is instantiated independently from the tool set.
-- `mewcode/app.py:778`: the assembled registry and security objects are passed to the unchanged `Agent` loop.
-- `mewcode/agents/tool_filter.py`: tool subsets are already copied into child registries, proving registry-level composition is compatible with existing agents.
-- `mewcode/config.py:249`: MewCode already merges user, project, and local configuration in precedence order.
-- `mewcode/__main__.py:176`: the headless path independently creates the coding registry and Agent.
+- `lumo/app.py:621`: the UI constructor creates the default registry directly.
+- `lumo/app.py:704`: `_select_provider()` begins the runtime assembly path.
+- `lumo/app.py:719`: the existing permission pipeline is instantiated independently from the tool set.
+- `lumo/app.py:778`: the assembled registry and security objects are passed to the unchanged `Agent` loop.
+- `lumo/agents/tool_filter.py`: tool subsets are already copied into child registries, proving registry-level composition is compatible with existing agents.
+- `lumo/config.py:249`: Lumo already merges user, project, and local configuration in precedence order.
+- `lumo/__main__.py:176`: the headless path independently creates the coding registry and Agent.
 - `deepseek-harness/packages/preset/agent-presets/README.md`: presets mount model-facing tools and prompt sections per agent and record the selected composition for reconstruction.
 
 ## Recommended minimal design

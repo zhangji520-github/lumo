@@ -12,19 +12,19 @@ from pathlib import Path
 
 import pytest
 
-from mewcode.conversation import (
+from lumo.conversation import (
     ConversationManager,
     Message,
     ToolResultBlock,
     ToolUseBlock,
 )
-from mewcode.memory.auto_memory import MemoryManager
-from mewcode.memory.instructions import (
+from lumo.memory.auto_memory import MemoryManager
+from lumo.memory.instructions import (
     MAX_INCLUDE_DEPTH,
     load_instructions,
     process_includes,
 )
-from mewcode.memory.session import (
+from lumo.memory.session import (
     RecordType,
     ResumeResult,
     Session,
@@ -39,7 +39,7 @@ from mewcode.memory.session import (
 )
 
 # =========================================================================
-# A. 指令文件（MEWCODE.md）
+# A. 指令文件（LUMO.md）
 # =========================================================================
 
 class TestProcessIncludes:
@@ -119,18 +119,18 @@ class TestProcessIncludes:
 
 class TestLoadInstructions:
     def test_single_layer(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        mewcode_md = tmp_path / "MEWCODE.md"
-        mewcode_md.write_text("project instructions", encoding="utf-8")
+        lumo_md = tmp_path / "LUMO.md"
+        lumo_md.write_text("project instructions", encoding="utf-8")
         result = load_instructions(str(tmp_path))
         assert "project instructions" in result
 
     def test_multi_layer_priority(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        """对齐 Go 版发现顺序：MEWCODE.md 在前，.mewcode/INSTRUCTIONS.md（legacy）在后。"""
-        root_md = tmp_path / "MEWCODE.md"
+        """对齐 Go 版发现顺序：LUMO.md 在前，.lumo/INSTRUCTIONS.md（legacy）在后。"""
+        root_md = tmp_path / "LUMO.md"
         root_md.write_text("root level", encoding="utf-8")
-        dotdir = tmp_path / ".mewcode"
+        dotdir = tmp_path / ".lumo"
         dotdir.mkdir()
-        # Go 版不发现 .mewcode/MEWCODE.md，只发现 .mewcode/INSTRUCTIONS.md（legacy）
+        # Go 版不发现 .lumo/LUMO.md，只发现 .lumo/INSTRUCTIONS.md（legacy）
         legacy_md = dotdir / "INSTRUCTIONS.md"
         legacy_md.write_text("legacy level", encoding="utf-8")
         result = load_instructions(str(tmp_path))
@@ -205,7 +205,7 @@ class TestSessionRecord:
 
 class TestSession:
     def test_append_writes_jsonl_and_updates_meta(self, tmp_path: Path) -> None:
-        sessions_dir = tmp_path / ".mewcode" / "sessions"
+        sessions_dir = tmp_path / ".lumo" / "sessions"
         sessions_dir.mkdir(parents=True)
         meta = SessionMeta(id="test_session")
         meta.save(sessions_dir / "test_session.meta")
@@ -222,7 +222,7 @@ class TestSession:
         assert meta.title == "hello"
 
     def test_title_set_from_first_user_message(self, tmp_path: Path) -> None:
-        sessions_dir = tmp_path / ".mewcode" / "sessions"
+        sessions_dir = tmp_path / ".lumo" / "sessions"
         sessions_dir.mkdir(parents=True)
         meta = SessionMeta(id="test_session")
         jsonl_path = sessions_dir / "test_session.jsonl"
@@ -638,7 +638,7 @@ class TestMemoryManager:
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
 
         # 创建项目级记忆目录和文件
-        project_mem_dir = tmp_path / "project" / ".mewcode" / "memory"
+        project_mem_dir = tmp_path / "project" / ".lumo" / "memory"
         project_mem_dir.mkdir(parents=True)
         # 写一个记忆文件
         mem_file = project_mem_dir / "test_mem.md"
@@ -663,7 +663,7 @@ class TestMemoryManager:
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
 
         # 用户级记忆
-        user_mem_dir = fake_home / ".mewcode" / "memory"
+        user_mem_dir = fake_home / ".lumo" / "memory"
         user_mem_dir.mkdir(parents=True)
         (user_mem_dir / "user_pref.md").write_text(
             "---\nname: coding style\ndescription: prefers spaces\ntype: user\n---\n\nprefer spaces\n",
@@ -671,7 +671,7 @@ class TestMemoryManager:
         )
 
         # 项目级记忆
-        project_mem_dir = tmp_path / "project" / ".mewcode" / "memory"
+        project_mem_dir = tmp_path / "project" / ".lumo" / "memory"
         project_mem_dir.mkdir(parents=True)
         (project_mem_dir / "proj_db.md").write_text(
             "---\nname: database\ndescription: uses PostgreSQL\ntype: project\n---\n\nuses PostgreSQL\n",
@@ -692,12 +692,12 @@ class TestMemoryManager:
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
 
         # 创建记忆文件
-        user_mem_dir = fake_home / ".mewcode" / "memory"
+        user_mem_dir = fake_home / ".lumo" / "memory"
         user_mem_dir.mkdir(parents=True)
         (user_mem_dir / "test.md").write_text("content", encoding="utf-8")
         (user_mem_dir / "MEMORY.md").write_text("- index\n", encoding="utf-8")
 
-        project_mem_dir = tmp_path / "project" / ".mewcode" / "memory"
+        project_mem_dir = tmp_path / "project" / ".lumo" / "memory"
         project_mem_dir.mkdir(parents=True)
         (project_mem_dir / "test.md").write_text("content", encoding="utf-8")
 
@@ -718,7 +718,7 @@ class TestMemoryManager:
         fake_home.mkdir()
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
 
-        project_mem_dir = tmp_path / "project" / ".mewcode" / "memory"
+        project_mem_dir = tmp_path / "project" / ".lumo" / "memory"
         project_mem_dir.mkdir(parents=True)
         (project_mem_dir / "db_info.md").write_text(
             "---\nname: db\ndescription: uses PostgreSQL\ntype: project\n---\n\ncontent\n",
@@ -744,7 +744,7 @@ class TestConversationInjection:
         assert len(conv.history) == 2
         assert conv.history[0].content == "env info"
         assert "<system-reminder>" in conv.history[1].content
-        assert "mewcodeMd" in conv.history[1].content
+        assert "lumoMd" in conv.history[1].content
         assert "project rules" in conv.history[1].content
         assert "autoMemory" in conv.history[1].content
         assert "user prefs" in conv.history[1].content
@@ -762,7 +762,7 @@ class TestConversationInjection:
         conv.inject_long_term_memory("rules", "")
         assert len(conv.history) == 1
         assert "<system-reminder>" in conv.history[0].content
-        assert "mewcodeMd" in conv.history[0].content
+        assert "lumoMd" in conv.history[0].content
         assert "rules" in conv.history[0].content
 
     def test_inject_memories_only(self) -> None:
@@ -793,7 +793,7 @@ class TestConversationInjection:
 class TestMemoryExtraction:
     def test_memory_types_aligned_with_go(self, tmp_path: Path) -> None:
         """验证四种记忆类型与 Go 版一致。"""
-        from mewcode.memory.auto_memory import VALID_TYPES, _USER_LEVEL_TYPES, _PROJECT_LEVEL_TYPES
+        from lumo.memory.auto_memory import VALID_TYPES, _USER_LEVEL_TYPES, _PROJECT_LEVEL_TYPES
 
         assert VALID_TYPES == {"user", "feedback", "project", "reference"}
         assert _USER_LEVEL_TYPES == {"user", "feedback"}

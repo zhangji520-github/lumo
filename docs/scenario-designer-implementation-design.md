@@ -1,4 +1,4 @@
-# MewCode Scenario Designer 实现设计
+# Lumo Scenario Designer 实现设计
 
 状态：实现设计提案  
 范围：场景包格式、Prompt Assembly、模型辅助创作、TUI、验证、安全、持久化与迁移  
@@ -14,7 +14,7 @@
 - 用户通过自然语言创建专属场景。
 - 模型提出必要的澄清问题。
 - 模型基于真实 Capability Catalog 生成结构化 Proposal。
-- MewCode 确定性生成 `scenario.yaml` 和 `prompt.md`。
+- Lumo 确定性生成 `scenario.yaml` 和 `prompt.md`。
 - 用户在保存前查看有效 Runtime、风险和文件 Diff。
 - 场景 Prompt、Tool Schema、能力自述和 TUI 保持一致。
 - 当前 Runtime 在 Candidate Runtime 验证成功前保持运行。
@@ -32,7 +32,7 @@
 
 当前主要差距：
 
-1. `IDENTITY_SECTION` 固定声明 MewCode 是 programming assistant。
+1. `IDENTITY_SECTION` 固定声明 Lumo 是 programming assistant。
 2. `DOING_TASKS_SECTION` 固定假设用户主要提出软件工程任务。
 3. `USING_TOOLS_SECTION` 固定描述 Coding 工具，即使当前 Runtime 不具备这些工具。
 4. Scenario 只有一段 `persona`，无法结构化表达身份、工作流和输出契约。
@@ -75,14 +75,14 @@ User request ──> ScenarioDesigner ─────┤
 新增模块建议：
 
 ```text
-mewcode/runtime/
+lumo/runtime/
 ├── prompt_models.py
 ├── prompt_registry.py
 ├── prompt_assembler.py
 ├── runtime_facts.py
 └── scenario_package.py
 
-mewcode/scenario_designer/
+lumo/scenario_designer/
 ├── __init__.py
 ├── models.py
 ├── service.py
@@ -93,13 +93,13 @@ mewcode/scenario_designer/
 ├── diff.py
 └── writer.py
 
-mewcode/tui/
+lumo/tui/
 ├── scenario_designer_screen.py
 ├── scenario_review_view.py
 └── scenario_diagnostics_view.py
 ```
 
-如果暂不重组现有 TUI 文件，可以先将三个 Screen 放在 `mewcode/`，但领域逻辑不得放入 Textual Widget。
+如果暂不重组现有 TUI 文件，可以先将三个 Screen 放在 `lumo/`，但领域逻辑不得放入 Textual Widget。
 
 ## 4. Scenario Package 格式
 
@@ -117,9 +117,9 @@ mewcode/tui/
 发现位置：
 
 ```text
-<project>/.mewcode/scenarios/<id>/scenario.yaml
-~/.mewcode/scenarios/<id>/scenario.yaml
-mewcode/scenarios/builtin/<id>/scenario.yaml
+<project>/.lumo/scenarios/<id>/scenario.yaml
+~/.lumo/scenarios/<id>/scenario.yaml
+lumo/scenarios/builtin/<id>/scenario.yaml
 ```
 
 优先级继续保持：项目级 > 用户级 > 内置。
@@ -202,7 +202,7 @@ startup:
 
 ### 4.4 `prompt.md`
 
-`prompt.md` 只保存领域体验，不复制 MewCode 核心协议和安全规则：
+`prompt.md` 只保存领域体验，不复制 Lumo 核心协议和安全规则：
 
 ```markdown
 # Workflow
@@ -343,7 +343,7 @@ class PromptContribution:
 ### 6.3 顺序与责任
 
 ```text
--100  kernel:identity          中性的 MewCode 身份
+-100  kernel:identity          中性的 Lumo 身份
  -90  kernel:safety            不可覆盖的通用安全规则
  -80  kernel:tool-protocol     Tool call、结果与 Prompt injection 规则
  -50  runtime:facts            Scenario、Provider、Model、能力事实
@@ -372,7 +372,7 @@ class PromptContribution:
 中性身份示例：
 
 ```text
-You are MewCode, an AI agent running in the current MewCode Runtime.
+You are Lumo, an AI agent running in the current Lumo Runtime.
 Follow the active scenario, use only capabilities present in this runtime,
 and do not claim capabilities that are not listed in Runtime Facts.
 ```
@@ -396,7 +396,7 @@ class RuntimeFacts:
 模型名称必须表述为“configured model”，因为代理 Provider 可能在服务端改写模型。模型被问及身份时应回答：
 
 ```text
-我是 MewCode 当前场景中的 <role>，配置 Provider 为 <provider_name>，
+我是 Lumo 当前场景中的 <role>，配置 Provider 为 <provider_name>，
 配置模型为 <model_name>。
 ```
 
@@ -426,7 +426,7 @@ Prompt 不得通过工具名字符串猜测能力状态。
 
 ### 7.1 独立于目标场景
 
-Designer 使用 MewCode 内置的受限 Authoring Runtime。即使当前场景是 Empty 或 Office，Designer 仍然可用，但它不能继承当前场景的 Bash、Plugin 工具或外部写权限。
+Designer 使用 Lumo 内置的受限 Authoring Runtime。即使当前场景是 Empty 或 Office，Designer 仍然可用，但它不能继承当前场景的 Bash、Plugin 工具或外部写权限。
 
 ### 7.2 模型可见工具
 
@@ -699,9 +699,9 @@ Cancel
 ### 11.4 Headless
 
 ```text
-mewcode scenario create --description "..." --output json
-mewcode scenario validate <id> --probe static
-mewcode scenario explain <id> --output json
+lumo scenario create --description "..." --output json
+lumo scenario validate <id> --probe static
+lumo scenario explain <id> --output json
 ```
 
 Headless 创建如果需要澄清，返回结构化 `needs_input`，不在非交互终端中猜测答案。
@@ -755,7 +755,7 @@ SessionMeta 继续保存：
 ### 13.2 Memory namespace
 
 ```text
-.mewcode/memory/
+.lumo/memory/
 ├── shared/
 ├── workspace/
 └── scenarios/
@@ -898,28 +898,28 @@ candidate-build-failed
 
 ### 17.1 新增
 
-- `mewcode/scenario_designer/*`
-- `mewcode/runtime/prompt_models.py`
-- `mewcode/runtime/prompt_registry.py`
-- `mewcode/runtime/prompt_assembler.py`
-- `mewcode/runtime/runtime_facts.py`
-- `mewcode/runtime/scenario_package.py`
-- `mewcode/tui/scenario_designer_screen.py`
-- `mewcode/tui/scenario_review_view.py`
+- `lumo/scenario_designer/*`
+- `lumo/runtime/prompt_models.py`
+- `lumo/runtime/prompt_registry.py`
+- `lumo/runtime/prompt_assembler.py`
+- `lumo/runtime/runtime_facts.py`
+- `lumo/runtime/scenario_package.py`
+- `lumo/tui/scenario_designer_screen.py`
+- `lumo/tui/scenario_review_view.py`
 
 ### 17.2 修改
 
-- `mewcode/prompts.py`：迁移为 PromptAssembler 兼容层。
-- `mewcode/runtime/models.py`：Experience、Memory scope、Prompt fingerprint。
-- `mewcode/runtime/scenario_loader.py`：目录场景包发现。
-- `mewcode/runtime/resolver.py`：Prompt 和 Experience 解析。
-- `mewcode/runtime/builder.py`：Prompt contribution 与 Candidate Runtime。
-- `mewcode/runtime/packs.py`：Capability Guidance。
-- `mewcode/agent.py`：接收 PromptAssembly，不感知场景文件。
-- `mewcode/memory/*`：Memory namespace。
-- `mewcode/commands/handlers/scenario.py`：Designer 命令。
-- `mewcode/app.py`：Designer Screen、Review、Runtime 交接。
-- `mewcode/remote.py`：Runtime Facts 与 Designer Remote 状态。
+- `lumo/prompts.py`：迁移为 PromptAssembler 兼容层。
+- `lumo/runtime/models.py`：Experience、Memory scope、Prompt fingerprint。
+- `lumo/runtime/scenario_loader.py`：目录场景包发现。
+- `lumo/runtime/resolver.py`：Prompt 和 Experience 解析。
+- `lumo/runtime/builder.py`：Prompt contribution 与 Candidate Runtime。
+- `lumo/runtime/packs.py`：Capability Guidance。
+- `lumo/agent.py`：接收 PromptAssembly，不感知场景文件。
+- `lumo/memory/*`：Memory namespace。
+- `lumo/commands/handlers/scenario.py`：Designer 命令。
+- `lumo/app.py`：Designer Screen、Review、Runtime 交接。
+- `lumo/remote.py`：Runtime Facts 与 Designer Remote 状态。
 
 ## 18. 实现顺序
 

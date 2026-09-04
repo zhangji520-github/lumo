@@ -1,19 +1,19 @@
-# MewCode Runtime Composition Research
+# Lumo Runtime Composition Research
 
 ## Goal
-Compare MewCode with DeepSeek Harness/Cordis and identify the smallest architecture-preserving change that enables scenario-specific Agent Runtime composition.
+Compare Lumo with DeepSeek Harness/Cordis and identify the smallest architecture-preserving change that enables scenario-specific Agent Runtime composition.
 
 ## Phases
 
 ### Phase 1: Map current architectures
 **Status:** complete
-- Identify MewCode's five-layer boundaries and existing extension points.
-- Identify the minimal DeepSeek Harness composition concepts relevant to MewCode.
+- Identify Lumo's five-layer boundaries and existing extension points.
+- Identify the minimal DeepSeek Harness composition concepts relevant to Lumo.
 
 ### Phase 2: Design the smallest borrowing
 **Status:** complete
 - Define a lightweight runtime profile/capability model.
-- Preserve MewCode's task orchestration, model interaction, tool execution, and security-control architecture.
+- Preserve Lumo's task orchestration, model interaction, tool execution, and security-control architecture.
 
 ### Phase 3: Validate against scenarios
 **Status:** complete
@@ -44,7 +44,7 @@ Compare MewCode with DeepSeek Harness/Cordis and identify the smallest architect
 | Decision | Rationale |
 |---|---|
 | Perform architecture analysis only | The user asked for ideas and minimal optimization, not implementation. |
-| Treat existing MewCode extension points as assets | The change must preserve the current architecture. |
+| Treat existing Lumo extension points as assets | The change must preserve the current architecture. |
 | Borrow profiles and capability packs, not Cordis itself | This captures scenario composition with a small Python-native change. |
 | Bind a profile at runtime/session creation | Mid-session capability changes create history and safety consistency problems. |
 | Use named capability packs rather than raw tool class paths | Packs preserve dependency wiring and keep config within the existing trust model. |
@@ -54,8 +54,8 @@ Compare MewCode with DeepSeek Harness/Cordis and identify the smallest architect
 ## Errors Encountered
 | Error | Attempt | Resolution |
 |---|---|---|
-| MewCode directory is not a Git repository | Ran `git status` | Continue with read-only source inspection and avoid source edits. |
-| PowerShell wildcard path failed in `rg` | Searched `mewcode\*dialog.py` | Enumerate dialog files with `rg --files` before passing explicit paths. |
+| Lumo directory is not a Git repository | Ran `git status` | Continue with read-only source inspection and avoid source edits. |
+| PowerShell wildcard path failed in `rg` | Searched `lumo\*dialog.py` | Enumerate dialog files with `rg --files` before passing explicit paths. |
 
 ## Next Step
 Write `docs/scenario-runtime-design.md` with architecture, configuration, TUI flows, security, migration, and acceptance criteria.

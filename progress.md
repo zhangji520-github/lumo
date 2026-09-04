@@ -3,11 +3,11 @@
 ## 2026-08-27
 - Read the planning-with-files skill instructions.
 - Enumerated both repositories and read DeepSeek Harness root guidance.
-- Confirmed MewCode is not a Git repository at the current path.
+- Confirmed Lumo is not a Git repository at the current path.
 - Created architecture-research planning files; no product source files changed.
-- Read DeepSeek Harness architecture guidance and the initial MewCode config/driver/client/agent/tool surfaces.
+- Read DeepSeek Harness architecture guidance and the initial Lumo config/driver/client/agent/tool surfaces.
 - Identified `ToolRegistry` and the agent construction path as likely minimal composition seams.
-- Located the complete runtime assembly hotspot in `MewCodeApp._select_provider()` and compared it with DeepSeek profile/bundle boot mechanics.
+- Located the complete runtime assembly hotspot in `LumoApp._select_provider()` and compared it with DeepSeek profile/bundle boot mechanics.
 - Completed the architecture map and started the minimal composition design.
 - Validated that runtime assembly is duplicated across TUI, headless CLI, and Remote.
 - Defined a minimal profile/pack/spec/builder design and mapped office and coding runtimes.

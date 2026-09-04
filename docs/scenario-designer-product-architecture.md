@@ -1,4 +1,4 @@
-# MewCode 专属场景设计器：产品与架构方案
+# Lumo 专属场景设计器：产品与架构方案
 
 状态：产品与架构提案  
 范围：专属场景创建、模型辅助配置、场景体验组合、信任与安全边界  
@@ -6,7 +6,7 @@
 
 ## 1. 背景与问题
 
-MewCode 已经可以通过 Scenario 选择 Capability Pack、MCP、CLI、Plugin、Skill、安全策略和功能开关，并在启动时构造不同的 Agent Runtime。但从用户体验看，当前“场景”仍主要是执行能力组合，而不是完整的产品体验组合。
+Lumo 已经可以通过 Scenario 选择 Capability Pack、MCP、CLI、Plugin、Skill、安全策略和功能开关，并在启动时构造不同的 Agent Runtime。但从用户体验看，当前“场景”仍主要是执行能力组合，而不是完整的产品体验组合。
 
 典型问题是：用户切换到 Office 场景后，状态栏显示 `scenario: office`，模型仍然自称编程助手、假设用户主要提出软件工程任务，并介绍 Bash、文件编辑、调试和代码重构能力。模型还可能猜测自己使用了错误的模型供应商。
 
@@ -16,15 +16,15 @@ MewCode 已经可以通过 Scenario 选择 Capability Pack、MCP、CLI、Plugin�
 
 ## 2. 产品愿景
 
-用户应当可以用自然语言描述自己需要的 Agent，由 MewCode 帮助完成能力匹配、Prompt 草拟、安全约束、配置生成、验证和启动，而不要求用户先理解 YAML、MCP、Python entry point、工具风险分类和 Prompt 优先级。
+用户应当可以用自然语言描述自己需要的 Agent，由 Lumo 帮助完成能力匹配、Prompt 草拟、安全约束、配置生成、验证和启动，而不要求用户先理解 YAML、MCP、Python entry point、工具风险分类和 Prompt 优先级。
 
 产品目标可以概括为：
 
-> Describe the agent you need; MewCode composes the runtime you can trust.
+> Describe the agent you need; Lumo composes the runtime you can trust.
 
 中文表达：
 
-> 用户描述目标，MewCode 组合一套真实可用、行为一致、边界清楚的专属 Agent Runtime。
+> 用户描述目标，Lumo 组合一套真实可用、行为一致、边界清楚的专属 Agent Runtime。
 
 ## 3. 完整的 Composable Runtime
 
@@ -68,7 +68,7 @@ Agent Runtime
 - 看懂最终能力与风险。
 - 确认后直接使用。
 
-### 4.2 熟悉 MewCode 的高级用户
+### 4.2 熟悉 Lumo 的高级用户
 
 用户希望快速复制、调整和版本化现有场景。
 
@@ -138,7 +138,7 @@ Proposal 必须经过确定性 Resolver 和安全校验，才能转换为 Scenar
 
 ### 5.4 Runtime Facts
 
-Runtime Facts 是 MewCode 在启动时根据真实配置生成的模型可见事实：
+Runtime Facts 是 Lumo 在启动时根据真实配置生成的模型可见事实：
 
 - 当前 Scenario ID 与名称。
 - 配置的 Provider 名称。
@@ -151,7 +151,7 @@ Runtime Facts 是 MewCode 在启动时根据真实配置生成的模型可见事
 
 ## 6. Scenario Designer 产品形态
 
-Scenario Designer 是 MewCode 内置的受控创作流程，不依赖当前场景拥有 Bash 或文件写工具。
+Scenario Designer 是 Lumo 内置的受控创作流程，不依赖当前场景拥有 Bash 或文件写工具。
 
 主要入口：
 
@@ -293,7 +293,7 @@ Missing
 - 草拟场景 Prompt。
 - 解释差异和风险。
 
-### 8.2 MewCode 负责
+### 8.2 Lumo 负责
 
 - 发现真实能力。
 - 解析 Capability ID。
@@ -315,7 +315,7 @@ Missing
 
 核心规则：
 
-> 模型负责意图理解与 Prompt 草拟，MewCode 负责能力解析与安全校验，用户负责最终授权。
+> 模型负责意图理解与 Prompt 草拟，Lumo 负责能力解析与安全校验，用户负责最终授权。
 
 ## 9. Experience Composition
 
@@ -323,7 +323,7 @@ Missing
 
 全局 Kernel 必须保持场景中性，只定义：
 
-- MewCode 平台身份。
+- Lumo 平台身份。
 - Agent Loop 与工具协议。
 - 通用安全规则。
 - Session 与上下文机制。
@@ -381,7 +381,7 @@ Office Base
 
 合理的模型自述：
 
-> 我是 MewCode 的办公助理 Runtime，当前配置模型为 deepseek-v4-flash。当前尚未连接文档、邮件或日历服务，因此可以帮助整理和分析你提供的文本，但不能直接操作这些外部系统。
+> 我是 Lumo 的办公助理 Runtime，当前配置模型为 deepseek-v4-flash。当前尚未连接文档、邮件或日历服务，因此可以帮助整理和分析你提供的文本，但不能直接操作这些外部系统。
 
 接入能力后，模型才可以声明对应功能。
 
@@ -464,7 +464,7 @@ Scenario Designer 自身使用受限 Runtime，只拥有 Catalog、Proposal、Va
 - 不在有历史的 Session 中原地替换身份和能力。
 - 不保证模型生成的领域 Prompt 自动具备法律、医疗或财务专业资质。
 - 不自动安装缺失 Plugin、CLI 或 MCP。
-- 不让 Scenario 覆盖 MewCode 核心安全不变量。
+- 不让 Scenario 覆盖 Lumo 核心安全不变量。
 
 ## 15. 产品验收标准
 
@@ -506,7 +506,7 @@ Scenario Designer 自身使用受限 Runtime，只拥有 Catalog、Proposal、Va
 
 1. Scenario 是能力与体验的组合，不是 Tool 白名单。
 2. Neutral Kernel 不携带 Coding 身份。
-3. 模型生成 Proposal，MewCode 生成最终配置。
+3. 模型生成 Proposal，Lumo 生成最终配置。
 4. 用户确认有效 Runtime，而不是确认原始模型文本。
 5. 场景 Prompt 与确定性配置分离保存。
 6. Capability Catalog 是能力事实来源。

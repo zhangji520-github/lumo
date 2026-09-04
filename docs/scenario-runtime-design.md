@@ -1,8 +1,8 @@
-# MewCode 可组合场景 Runtime 设计
+# Lumo 可组合场景 Runtime 设计
 
 状态：设计提案  
 范围：后端 Runtime 装配、扩展能力接入、TUI 场景管理  
-目标：在不改变 MewCode 现有五层 Harness 主架构和 Agent Loop 的前提下，让用户按场景组合内置工具、MCP、CLI、Skill 和 Python 插件。
+目标：在不改变 Lumo 现有五层 Harness 主架构和 Agent Loop 的前提下，让用户按场景组合内置工具、MCP、CLI、Skill 和 Python 插件。
 
 关联设计：
 
@@ -11,14 +11,14 @@
 
 ## 1. 背景
 
-MewCode 当前已经具备模型客户端、Agent Loop、ToolRegistry、MCP、Skill、Hook、权限检查、路径约束、OS Sandbox、Session、子 Agent 和 TUI 等能力，但这些能力主要由 TUI、非交互 CLI 和 Remote 三个入口分别初始化。默认工具集合也固定为 Coding Agent 所需的文件读写、搜索和 Bash 工具。
+Lumo 当前已经具备模型客户端、Agent Loop、ToolRegistry、MCP、Skill、Hook、权限检查、路径约束、OS Sandbox、Session、子 Agent 和 TUI 等能力，但这些能力主要由 TUI、非交互 CLI 和 Remote 三个入口分别初始化。默认工具集合也固定为 Coding Agent 所需的文件读写、搜索和 Bash 工具。
 
-这使 MewCode 可以作为 Coding Agent 工作，却不便于用户创建一套仅包含文档、知识库、邮件、日程等能力的办公 Agent，也不便于按项目裁剪工具、Prompt 和安全策略。
+这使 Lumo 可以作为 Coding Agent 工作，却不便于用户创建一套仅包含文档、知识库、邮件、日程等能力的办公 Agent，也不便于按项目裁剪工具、Prompt 和安全策略。
 
 本设计增加一个启动期的“场景装配面”。场景只决定一套 Runtime 包含哪些能力，运行期间仍使用现有任务编排、模型交互、工具执行和安全控制流程。
 
 ```text
-Runtime = MewCode 固定内核 + 用户选择的场景能力
+Runtime = Lumo 固定内核 + 用户选择的场景能力
 ```
 
 这里的“可组合”不表示把所有模块改写成插件，也不表示可以在一次模型调用中随意替换 Runtime。它表示用户可以在启动会话前声明并选择能力集合，由统一装配器构造一套确定的 Agent Runtime。
@@ -92,9 +92,9 @@ Scenario 是用户可选择的场景定义，描述 Persona、能力集合、功
 
 建议的发现位置和优先级为：
 
-1. 项目级：`<project>/.mewcode/scenarios/*.yaml`
-2. 用户级：`~/.mewcode/scenarios/*.yaml`
-3. 内置：`mewcode/scenarios/builtin/*.yaml`
+1. 项目级：`<project>/.lumo/scenarios/*.yaml`
+2. 用户级：`~/.lumo/scenarios/*.yaml`
+3. 内置：`lumo/scenarios/builtin/*.yaml`
 
 同 ID 场景按以上顺序覆盖。TUI 必须显示来源，避免用户误以为项目场景是全局场景。内置场景只读；用户可以复制后编辑。
 
@@ -261,7 +261,7 @@ mcp_servers:
       OFFICE_TOKEN: "${OFFICE_TOKEN}"
 
 cli_tools:
-  - file: "~/.mewcode/cli-tools/pandoc.yaml"
+  - file: "~/.lumo/cli-tools/pandoc.yaml"
 ```
 
 ## 7. 后端设计
@@ -269,7 +269,7 @@ cli_tools:
 ### 7.1 建议模块结构
 
 ```text
-mewcode/runtime/
+lumo/runtime/
 ├── models.py             # Scenario、CapabilityDescriptor、RuntimeSpec
 ├── scenario_loader.py    # 内置/用户/项目场景发现和原子保存
 ├── catalog.py            # 能力目录聚合
@@ -299,7 +299,7 @@ TUI、`-p` 和 Remote 不再自行创建默认 Registry、PermissionChecker、Sk
 | `coding.teams` | TeamManager、TeamCreate、TeamDelete、SendMessage 和任务工具 |
 | `core.session` | Session、Memory、FileHistory 及其绑定 |
 
-Pack 不是通用动态插件。它是 MewCode 内部的注册函数，用来保存当前工具之间的依赖关系。例如文件工具必须共享同一个 `FileStateCache`，不能由 YAML 逐个实例化。
+Pack 不是通用动态插件。它是 Lumo 内部的注册函数，用来保存当前工具之间的依赖关系。例如文件工具必须共享同一个 `FileStateCache`，不能由 YAML 逐个实例化。
 
 ```python
 class CapabilityPack(Protocol):
@@ -390,8 +390,8 @@ Prompt Section 使用稳定名称和优先级：
 
 CLI 工具定义独立存放于：
 
-- 项目级：`<project>/.mewcode/cli-tools/*.yaml`
-- 用户级：`~/.mewcode/cli-tools/*.yaml`
+- 项目级：`<project>/.lumo/cli-tools/*.yaml`
+- 用户级：`~/.lumo/cli-tools/*.yaml`
 
 示例：
 
@@ -459,14 +459,14 @@ class Tool:
 Python 插件通过标准 entry point 发现：
 
 ```toml
-[project.entry-points."mewcode.plugins"]
-document-review = "mewcode_document_review:plugin"
+[project.entry-points."lumo.plugins"]
+document-review = "lumo_document_review:plugin"
 ```
 
 插件协议：
 
 ```python
-class MewCodePlugin(Protocol):
+class LumoPlugin(Protocol):
     id: str
     version: str
     requires: tuple[str, ...]
@@ -582,7 +582,7 @@ runtime_snapshot_file: str
 启动状态由当前“直接选择 Provider”调整为统一 Launcher：
 
 ```text
-┌ MewCode ───────────────────────────────────────────────────┐
+┌ Lumo ───────────────────────────────────────────────────┐
 │ Scenario                                                   │
 │ ❯ Coding                                                  │
 │   My Office                                               │
@@ -688,7 +688,7 @@ Review 页必须呈现：
 - 插件包名及版本。
 - 所有 warning/error。
 
-保存使用临时文件加原子替换。项目场景写入 `.mewcode/scenarios/`，用户场景写入 `~/.mewcode/scenarios/`。ID 冲突不覆盖，要求用户明确选择新 ID 或编辑已有文件。
+保存使用临时文件加原子替换。项目场景写入 `.lumo/scenarios/`，用户场景写入 `~/.lumo/scenarios/`。ID 冲突不覆盖，要求用户明确选择新 ID 或编辑已有文件。
 
 ### 8.5 新建场景
 
@@ -730,7 +730,7 @@ TUI 示例：
 ```text
 ERROR plugin-missing · document-review
 Plugin "document-review" is not installed.
-Install the package that provides entry point mewcode.plugins/document-review.
+Install the package that provides entry point lumo.plugins/document-review.
 
 WARNING mcp-unavailable · calendar
 Connection failed: executable not found. This capability is optional.
@@ -746,7 +746,7 @@ Connection failed: executable not found. This capability is optional.
 schema_version: 1
 id: coding
 name: Coding
-description: MewCode 默认 Coding Agent Runtime
+description: Lumo 默认 Coding Agent Runtime
 
 provider: inherit
 
@@ -795,7 +795,7 @@ security:
 
 主要改动：
 
-- 新增 `mewcode/runtime/` 装配模块。
+- 新增 `lumo/runtime/` 装配模块。
 - 扩展 `config.py` 和 `validator.py`：默认场景、CLI 定义索引和新结构校验。
 - 调整 `tools/base.py`：结构化 permission targets。
 - 调整 `permissions/checker.py` 和 `permissions/rules.py`：支持外部工具的权限描述与场景规则。
@@ -856,7 +856,7 @@ security:
 
 - 用户可以仅通过 TUI 创建一个自定义场景并选择 MCP、CLI、插件和 Skill。
 - 用户也可以通过 YAML 创建同等场景，并用命令校验和启动。
-- `mewcode --scenario my-office`、TUI 和 Remote 使用同一装配结果。
+- `lumo --scenario my-office`、TUI 和 Remote 使用同一装配结果。
 - 默认启动行为对现有用户保持为 Coding Agent。
 - 场景中未选择的工具不会出现在模型 Schema、ToolSearch 或子 Agent 中。
 - MCP、CLI 和插件工具都经过现有 Hook、权限和 Sandbox 控制。
@@ -867,13 +867,13 @@ security:
 
 ## 14. 最终边界
 
-本设计借鉴 DeepSeek Harness 的是“运行时由能力组合产生”，但不复制 Cordis 的完整插件树。MewCode 保持固定内核：
+本设计借鉴 DeepSeek Harness 的是“运行时由能力组合产生”，但不复制 Cordis 的完整插件树。Lumo 保持固定内核：
 
 ```text
 固定：任务编排、模型交互、Agent Loop、工具执行、安全控制、Session 语义
 可组合：工具、MCP、CLI、Skill、插件、Persona、功能开关和附加安全约束
 ```
 
-因此，优化后的 MewCode 不是“everything is plugin”，而是：
+因此，优化后的 Lumo 不是“everything is plugin”，而是：
 
-> 用户通过 Scenario 选择受控能力，MewCode 在启动时把它们组合成一套可审计、可恢复、受统一安全链保护的 Agent Runtime。
+> 用户通过 Scenario 选择受控能力，Lumo 在启动时把它们组合成一套可审计、可恢复、受统一安全链保护的 Agent Runtime。

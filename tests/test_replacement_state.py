@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from mewcode.context.manager import (
+from lumo.context.manager import (
     AGGREGATE_CHAR_LIMIT,
     PERSISTED_TAG,
     REPLACEMENT_RECORDS_FILENAME,
@@ -22,7 +22,7 @@ from mewcode.context.manager import (
     load_replacement_records,
     reconstruct_replacement_state,
 )
-from mewcode.conversation import ConversationManager, Message, ToolResultBlock
+from lumo.conversation import ConversationManager, Message, ToolResultBlock
 
 def _one_msg_conv(*results: ToolResultBlock) -> ConversationManager:
     conv = ConversationManager()

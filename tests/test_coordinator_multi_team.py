@@ -14,12 +14,12 @@ import asyncio
 import shutil
 from unittest.mock import MagicMock
 
-from mewcode.teams.manager import TeamManager
-from mewcode.teams.models import resolve_team_dir
-from mewcode.tools.team_create import TeamCreateTool, TeamCreateParams
-from mewcode.tools.team_delete import TeamDeleteTool, TeamDeleteParams
-from mewcode.tools import ToolRegistry
-from mewcode.tools.base import Tool, ToolResult
+from lumo.teams.manager import TeamManager
+from lumo.teams.models import resolve_team_dir
+from lumo.tools.team_create import TeamCreateTool, TeamCreateParams
+from lumo.tools.team_delete import TeamDeleteTool, TeamDeleteParams
+from lumo.tools import ToolRegistry
+from lumo.tools.base import Tool, ToolResult
 
 
 class DummyTool(Tool):
