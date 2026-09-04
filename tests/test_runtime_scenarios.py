@@ -624,7 +624,64 @@ async def test_tui_starts_with_scenario_launcher(
     async with app.run_test():
         scenario_list = app.query_one("#scenario-list")
         assert scenario_list.option_count >= 3
+        detail = app.query_one("#scenario-detail")
+        assert "CAPABILITIES" in str(detail.render())
         assert app.query_one("#chat-area").display is False
+
+
+@pytest.mark.asyncio
+async def test_tui_scenario_launcher_updates_preview_on_highlight(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from lumo.app import FoxMascot, LumoApp
+
+    monkeypatch.chdir(tmp_path)
+    config = _config()
+    app = LumoApp(
+        providers=config.providers,
+        app_config=config,
+        scenario_id=None,
+    )
+    async with app.run_test() as pilot:
+        scenario_list = app.query_one("#scenario-list")
+        office_index = next(
+            index
+            for index, record in enumerate(app._scenario_records)
+            if record.id == "office"
+        )
+        scenario_list.highlighted = office_index
+        await pilot.pause()
+        detail = str(app.query_one("#scenario-detail").render())
+        assert "Office Base" in detail
+        assert "office assistant" in detail
+        fox = app.query_one("#fox-mark", FoxMascot)
+        assert fox.mood == "office"
+
+
+@pytest.mark.asyncio
+async def test_tui_fox_mascot_animates_expression(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from lumo.app import FoxMascot, LumoApp, _render_fox_mark
+
+    monkeypatch.chdir(tmp_path)
+    config = _config()
+    app = LumoApp(
+        providers=config.providers,
+        app_config=config,
+        scenario_id=None,
+    )
+    async with app.run_test():
+        fox = app.query_one("#fox-mark", FoxMascot)
+        fox._animation_step = 0
+        fox.update(_render_fox_mark(fox.mood, 0))
+        resting_face = str(fox.render())
+        fox._animation_step = 3
+        fox._advance_expression()
+        blinking_face = str(fox.render())
+        assert resting_face != blinking_face
 
 
 @pytest.mark.asyncio

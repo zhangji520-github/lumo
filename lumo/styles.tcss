@@ -3,38 +3,134 @@ Screen { }
 #title-bar {
     dock: top;
     width: 100%;
-    height: 3;
-    padding: 0 1;
+    height: 4;
+    padding: 0 2;
+    background: #171C26;
+    border-bottom: solid #30394A;
 }
 
-/* --- Provider Selection --- */
+/* --- Runtime Launcher --- */
 
 #scenario-select {
-    align: center middle;
     width: 100%;
     height: 1fr;
+    background: #10151E;
+    padding: 2 3;
+    align: center middle;
 }
 
-#scenario-select-label {
-    text-align: center;
+#scenario-launcher {
     width: 100%;
-    height: auto;
-    margin-top: 2;
+    height: 1fr;
+    min-height: 22;
+    max-width: 142;
+}
+
+#launcher-intro {
+    width: 28;
+    height: 100%;
+    padding: 3 3 2 2;
+    background: #171D28;
+    border: solid #344052;
+}
+
+#fox-mark {
+    width: 100%;
+    height: 5;
+    color: #FFE8C2;
     text-style: bold;
-    color: $secondary;
+}
+
+#launcher-brand {
+    margin-top: 1;
+    width: 100%;
+    color: #FFE4A3;
+    text-style: bold;
+}
+
+#launcher-copy {
+    margin-top: 1;
+    width: 100%;
+    color: #AAB5C8;
+}
+
+#launcher-keys {
+    dock: bottom;
+    width: 100%;
+    color: #758199;
+}
+
+#scenario-browser {
+    width: 1fr;
+    height: 100%;
+    padding: 3 2;
+    background: #1A202C;
+    border-top: solid #344052;
+    border-bottom: solid #344052;
+}
+
+#scenario-select-label,
+#scenario-preview-label {
+    width: 100%;
+    height: 1;
+    color: #F6C84D;
+    text-style: bold;
+}
+
+#scenario-select-subtitle {
+    width: 100%;
+    height: 2;
+    margin-top: 1;
+    color: #98A5B9;
 }
 
 #scenario-list {
-    width: 68;
-    height: auto;
-    max-height: 16;
-    margin: 1 2;
+    width: 100%;
+    height: 1fr;
+    margin-top: 1;
+    padding: 0 1;
+    background: #141A24;
+    border: solid #30394A;
+    color: #E6EBF4;
+}
+
+OptionList > .option-list--option {
+    height: 3;
+    padding: 0 1;
+    color: #E6EBF4;
+}
+
+OptionList > .option-list--option-highlighted {
+    background: #2B3445;
+    color: #FFFFFF;
+    text-style: bold;
+}
+
+OptionList > .option-list--option-disabled {
+    color: #8A5F67;
+}
+
+#scenario-preview {
+    width: 40;
+    height: 100%;
+    padding: 3 3;
+    background: #171D28;
+    border: solid #344052;
+}
+
+#scenario-detail {
+    width: 100%;
+    height: 1fr;
+    margin-top: 1;
+    padding: 1 0;
+    color: #D8DFEA;
 }
 
 #provider-select {
     align: center middle;
     width: 100%;
     height: 1fr;
+    background: #10151E;
 }
 
 #select-label {
@@ -50,6 +146,8 @@ Screen { }
     height: auto;
     max-height: 16;
     margin: 1 2;
+    background: #171D28;
+    border: solid #344052;
 }
 
 /* --- Chat Area --- */
@@ -57,14 +155,17 @@ Screen { }
 #chat-area {
     height: 1fr;
     min-height: 18;
-    padding: 0 1;
+    padding: 1 2;
+    background: #10151E;
 }
 
 .message {
-    padding: 0 2;
-    margin: 0;
+    padding: 1 2;
+    margin: 0 0 1 0;
     width: 100%;
     height: auto;
+    background: #171D28;
+    border-left: solid #344052;
 }
 
 .user-row {
@@ -73,7 +174,7 @@ Screen { }
 }
 
 .user-message {
-    color: $text;
+    color: #F4F7FB;
 }
 
 .ai-row {
@@ -82,7 +183,7 @@ Screen { }
 }
 
 .ai-message {
-    color: $text;
+    color: #E4E9F2;
 }
 
 .error-message {
@@ -91,17 +192,19 @@ Screen { }
 }
 
 .system-message {
-    color: $text-muted;
+    color: #AAB5C8;
     padding: 0 2;
 }
 
 /* --- Tool Call Block --- */
 
 .tool-block {
-    padding: 0 2;
+    padding: 1 2;
     width: auto;
     height: auto;
-    color: $text;
+    color: #D6DEEA;
+    background: #141A24;
+    border-left: solid #D99825;
 }
 
 .tool-block-loading {
@@ -137,15 +240,23 @@ Screen { }
     dock: bottom;
     height: auto;
     max-height: 20;
-    padding: 0 1;
-    border-top: solid #2A3240;
+    padding: 1 2 0 2;
+    background: #171D28;
+    border-top: solid #344052;
 }
 
 #chat-input {
     height: auto;
     min-height: 1;
     max-height: 10;
-    border: none;
+    padding: 0 1;
+    color: #F4F7FB;
+    background: #10151E;
+    border: solid #344052;
+}
+
+#chat-input:focus {
+    border: solid #F6C84D;
 }
 
 #status-bar {
@@ -153,20 +264,21 @@ Screen { }
     min-height: 1;
     width: 100%;
     padding: 0 1;
-    border-top: solid #2A3240;
+    background: #171D28;
+    border-top: solid #30394A;
 }
 
 #mode-label {
     width: auto;
     height: 1;
-    color: $text-muted;
+    color: #AAB5C8;
     padding: 0 1;
 }
 
 #scenario-label {
     width: auto;
     height: 1;
-    color: $secondary;
+    color: #F5D16A;
     padding: 0 1;
 }
 
@@ -180,7 +292,7 @@ Screen { }
     width: 1fr;
     height: 1;
     text-align: right;
-    color: $text-muted;
+    color: #AAB5C8;
 }
 
 /* --- Teammate Tree --- */

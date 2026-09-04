@@ -1,7 +1,7 @@
 [project]
 name = "lumo"
 version = "0.2.0"
-description = "A terminal AI coding assistant"
+description = "A composable terminal-first agent harness"
 requires-python = ">=3.11"
 dependencies = [
     "textual>=2.1.0",

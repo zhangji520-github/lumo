@@ -111,6 +111,63 @@ _SKIP_DIRS = {
 }
 
 
+_SCENARIO_FEATURE_LABELS = (
+    ("memory", "Memory"),
+    ("worktree", "Worktrees"),
+    ("subagents", "Subagents"),
+    ("teams", "Teams"),
+    ("skill_install", "Skills"),
+)
+
+_FOX_ANIMATION_SEQUENCE = (0, 0, 0, 0, 1, 0, 0, 2, 0, 0)
+
+
+def _render_fox_mark(mood: str = "coding", frame: int = 0) -> RichText:
+    expressions = {
+        "coding": (("•", "ᴗ", "•"), ("─", "ᴗ", "─"), ("•", "⌄", "•")),
+        "office": (("•", "ᴗ", "•"), ("─", "ᴗ", "─"), ("•", "◡", "⌁")),
+        "empty": (("˘", "ᴗ", "˘"), ("─", "ᴗ", "─"), ("•", "ᴗ", "•")),
+    }
+    left_eye, mouth, right_eye = expressions.get(
+        mood, expressions["coding"]
+    )[frame % 3]
+    fox = RichText()
+    fox.append("   /\\_/\\\n", style="bold #F47B20")
+    fox.append("  /     \\\n", style="bold #F47B20")
+    fox.append(" ( ", style="bold #FFE8C2")
+    fox.append(left_eye, style="bold #F4F7FB")
+    fox.append(f" {mouth} ", style="bold #F9C94A")
+    fox.append(right_eye, style="bold #F4F7FB")
+    fox.append(" )\n", style="bold #FFE8C2")
+    fox.append("  \\  ^  /\n", style="bold #FFE8C2")
+    fox.append("   \\___/", style="bold #FFE8C2")
+    return fox
+
+
+class FoxMascot(Static):
+    """A low-motion fox that blinks and reacts to scenario highlights."""
+
+    def __init__(self, mood: str = "coding", **kwargs: Any) -> None:
+        self.mood = mood
+        self._animation_step = 0
+        super().__init__(_render_fox_mark(mood), **kwargs)
+
+    def on_mount(self) -> None:
+        self.set_interval(0.45, self._advance_expression)
+
+    def set_mood(self, mood: str) -> None:
+        self.mood = mood if mood in {"coding", "office", "empty"} else "coding"
+        self._animation_step = 0
+        self.update(_render_fox_mark(self.mood))
+
+    def _advance_expression(self) -> None:
+        self._animation_step = (self._animation_step + 1) % len(
+            _FOX_ANIMATION_SEQUENCE
+        )
+        frame = _FOX_ANIMATION_SEQUENCE[self._animation_step]
+        self.update(_render_fox_mark(self.mood, frame))
+
+
 def scan_files_for_at(prefix: str, work_dir: str, limit: int = 10) -> list[str]:
     matches: list[str] = []
     base = os.path.join(work_dir, os.path.dirname(prefix)) if "/" in prefix else work_dir
@@ -601,7 +658,7 @@ _LUMO_THEME = Theme(
 
 class LumoApp(App):
     CSS_PATH = "styles.tcss"
-    TITLE = "Lumo"
+    TITLE = "Lumo Agent Harness"
     INLINE_PADDING = 0
     theme = "lumo"
     BINDINGS = [
@@ -713,35 +770,114 @@ class LumoApp(App):
     @staticmethod
     def _make_banner(model: str = "", work_dir: str = "") -> RichText:
         t = RichText()
-        t.append("    ✦      ", style="bold #9B8AFB")
-        t.append("Lumo v0.2.0\n", style="#E8ECF3")
-        t.append("  · │ ·    ", style="bold #6FE7C8")
-        t.append(f"{model}\n" if model else "\n", style="#8E98AA")
-        t.append("    ·      ", style="#79D9FF")
-        t.append(work_dir, style="#8E98AA")
+        t.append("  /\\_/\\     ", style="bold #F47B20")
+        t.append("Lumo\n", style="bold #F9C94A")
+        t.append(" ( ● ᴗ ● )   ", style="bold #FFE8C2")
+        t.append(f"{model}\n" if model else "\n", style="#A9B3C6")
+        t.append("  \\___/     ", style="bold #FFE8C2")
+        t.append(work_dir, style="#A9B3C6")
         return t
+
+    @staticmethod
+    def _scenario_option_label(record: Any) -> RichText:
+        text = RichText()
+        if record.definition is None:
+            text.append(record.id, style="bold #FF8D96")
+            text.append("\n  Unavailable: ", style="#A9B3C6")
+            text.append(record.error or "Invalid scenario", style="#FF8D96")
+            return text
+
+        definition = record.definition
+        summary = definition.description or definition.experience.mission
+        text.append(definition.name, style="bold #F4F7FB")
+        text.append(f"  {record.source}", style="#8A96AA")
+        if summary:
+            text.append("\n  ")
+            text.append(summary, style="#B8C1D1")
+        return text
+
+    @staticmethod
+    def _scenario_detail(record: Any) -> RichText:
+        text = RichText()
+        if record.definition is None:
+            text.append("This scenario cannot be started", style="bold #FF8D96")
+            text.append("\n\n")
+            text.append(record.error or "The scenario definition is invalid.", style="#B8C1D1")
+            return text
+
+        definition = record.definition
+        experience = definition.experience
+        summary = definition.description or experience.mission or "No description provided."
+        enabled = [
+            label
+            for key, label in _SCENARIO_FEATURE_LABELS
+            if getattr(definition.features, key)
+        ]
+        text.append(definition.name, style="bold #FFE19A")
+        text.append(f"  /  {record.id}", style="#8A96AA")
+        text.append("\n\n")
+        text.append(summary, style="#E4E9F2")
+        if experience.role:
+            text.append("\n\nROLE\n", style="bold #8A96AA")
+            text.append(experience.role, style="#C9D2E0")
+        if experience.default_tasks:
+            text.append("\n\nGOOD FOR\n", style="bold #8A96AA")
+            text.append("  ·  ".join(experience.default_tasks[:3]), style="#C9D2E0")
+        text.append("\n\nCAPABILITIES\n", style="bold #8A96AA")
+        text.append(
+            "  ·  ".join(enabled) if enabled else "Conversation and prompts",
+            style="#F5D16A",
+        )
+        return text
+
+    def _update_scenario_detail(self, scenario_id: str) -> None:
+        record = next(
+            (item for item in self._scenario_records if item.id == scenario_id),
+            None,
+        )
+        if record is not None:
+            self.query_one("#scenario-detail", Static).update(
+                self._scenario_detail(record)
+            )
 
     def compose(self) -> ComposeResult:
         yield Static(self._make_banner(), id="title-bar")
 
         if self._show_scenario_selector:
             with Vertical(id="scenario-select"):
-                yield Static("Select a Scenario", id="scenario-select-label")
-                yield OptionList(
-                    *[
-                        Option(
-                            (
-                                f"{record.definition.name}  [{record.id}]"
-                                if record.definition is not None
-                                else f"{record.id}  [broken: {record.error}]"
-                            ),
-                            id=record.id,
-                            disabled=not record.healthy,
+                with Horizontal(id="scenario-launcher"):
+                    with Vertical(id="launcher-intro"):
+                        yield FoxMascot(id="fox-mark")
+                        yield Static("Lumo", id="launcher-brand")
+                        yield Static("Choose a focused runtime", id="launcher-copy")
+                        yield Static("UP / DOWN  Browse\nENTER      Start", id="launcher-keys")
+                    with Vertical(id="scenario-browser"):
+                        yield Static("RUNTIME LIBRARY", id="scenario-select-label")
+                        yield Static(
+                            "Start with a preset, then add your own scenarios from .lumo/scenarios.",
+                            id="scenario-select-subtitle",
                         )
-                        for record in self._scenario_records
-                    ],
-                    id="scenario-list",
-                )
+                        yield OptionList(
+                            *[
+                                Option(
+                                    self._scenario_option_label(record),
+                                    id=record.id,
+                                    disabled=not record.healthy,
+                                )
+                                for record in self._scenario_records
+                            ],
+                            id="scenario-list",
+                        )
+                    with Vertical(id="scenario-preview"):
+                        initial = next(
+                            (record for record in self._scenario_records if record.healthy),
+                            self._scenario_records[0] if self._scenario_records else None,
+                        )
+                        yield Static("SELECTED RUNTIME", id="scenario-preview-label")
+                        yield Static(
+                            self._scenario_detail(initial) if initial is not None else "No scenarios found.",
+                            id="scenario-detail",
+                        )
 
         if len(self.providers) > 1:
             with Vertical(id="provider-select"):
@@ -1143,6 +1279,14 @@ class LumoApp(App):
         elif event.option_list.id == "provider-list":
             provider = self.providers[event.option_index]
             await self._select_provider(provider)
+
+    def on_option_list_option_highlighted(
+        self, event: OptionList.OptionHighlighted
+    ) -> None:
+        if event.option_list.id == "scenario-list":
+            scenario_id = str(event.option.id)
+            self._update_scenario_detail(scenario_id)
+            self.query_one("#fox-mark", FoxMascot).set_mood(scenario_id)
 
     # -----------------------------------------------------------------
     # UIController 协议实现

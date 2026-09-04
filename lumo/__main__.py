@@ -32,7 +32,10 @@ def main() -> None:
         filemode="w",
     )
 
-    parser = argparse.ArgumentParser(prog="lumo", description="Lumo AI coding assistant")
+    parser = argparse.ArgumentParser(
+        prog="lumo",
+        description="Lumo Agent Harness",
+    )
     parser.add_argument(
         "--mode",
         choices=[m.value for m in PermissionMode],
