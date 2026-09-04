@@ -1,5 +1,7 @@
 # Lumo Agent Harness
 
+**English** | [简体中文](README.zh-CN.md)
+
 A terminal-first harness for composing scenario-specific Agent runtimes and
 coordinating multiple agents safely inside one project.
 
