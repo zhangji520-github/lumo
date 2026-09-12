@@ -9,6 +9,46 @@
 
 ## 为什么选择 Lumo
 
+### 编译式长期记忆
+
+Lumo 可以把透明、可人工编辑的 Markdown 记忆与
+[GBrain](https://github.com/garrytan/gbrain) 编译式知识大脑组合起来。你可以选择
+`markdown`、`gbrain` 或 `hybrid`：混合模式让 Markdown 保存少量必须常驻的规则，
+由 GBrain 提供带来源的事实、实体关系、关键词/向量检索、纠错与撤回，以及跨来源综合。
+
+长期记忆不再依赖模型“碰巧想起来调用工具”。Lumo 会在每个 Session 首次进入时预热
+GBrain，在第一次模型推理前完成相关记忆召回，并在上下文压缩后重新注入。GBrain
+不可用时，读取会 fail-open 降级到 Markdown；经过用户明确授权的 `remember` 如果遇到
+瞬时传输失败，则进入本地 outbox 等待重试。权限或参数错误不会绕过安全边界。
+
+```yaml
+memory:
+  mode: hybrid
+  gbrain_server: gbrain
+  recall_timeout_seconds: 2.0
+  recall_budget_tokens: 2000
+  auto_capture: false
+
+mcp_servers:
+  - name: gbrain
+    command: gbrain
+    args: [serve, --surface, verbs]
+    env:
+      GBRAIN_HOME: ${LUMO_GBRAIN_HOME}
+```
+
+启动 Lumo 前，需单独初始化可选的本地大脑：
+
+```powershell
+bun install -g github:garrytan/gbrain#latest-stable
+gbrain init --pglite --no-embedding
+gbrain doctor --json
+```
+
+集成只依赖 GBrain 小而稳定的 `MEMORY_VERBS v1` 七动词协议，而不耦合其内部实现，
+既避免把庞大的工具目录塞进 Agent，也保留未来替换记忆后端的能力。GBrain 自动捕获
+对话默认关闭；显式保存的记忆必须携带 provenance。
+
 ### 可组合的场景 Runtime
 
 场景不只是工具预设。Lumo 可以将内置能力包、MCP 服务、外部 CLI 工具、

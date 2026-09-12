@@ -9,6 +9,50 @@ coordinating multiple agents safely inside one project.
 
 ## Why Lumo
 
+### Compiled long-term memory
+
+Lumo can combine its transparent, human-editable Markdown memory with a
+[GBrain](https://github.com/garrytan/gbrain) compiled knowledge brain. Choose
+`markdown`, `gbrain`, or `hybrid`; the hybrid mode keeps compact standing rules
+in Markdown while GBrain provides provenance-aware facts, entity relationships,
+keyword/vector retrieval, correction and withdrawal, and cross-source synthesis.
+
+Memory is placed at the runtime boundary instead of left to prompt luck. Lumo
+warms GBrain context once per session, resolves relevant memory before the first
+model inference, and rehydrates it after compaction. Reads fail open to Markdown
+when GBrain is unavailable, while transient, explicitly-authorized `remember`
+writes are queued locally for retry. Permission or validation failures never
+bypass their safety boundary.
+
+```yaml
+memory:
+  mode: hybrid
+  gbrain_server: gbrain
+  recall_timeout_seconds: 2.0
+  recall_budget_tokens: 2000
+  auto_capture: false
+
+mcp_servers:
+  - name: gbrain
+    command: gbrain
+    args: [serve, --surface, verbs]
+    env:
+      GBRAIN_HOME: ${LUMO_GBRAIN_HOME}
+```
+
+Initialize the optional local brain separately before starting Lumo:
+
+```powershell
+bun install -g github:garrytan/gbrain#latest-stable
+gbrain init --pglite --no-embedding
+gbrain doctor --json
+```
+
+The integration targets GBrain's small, frozen `MEMORY_VERBS v1` surface rather
+than its internal implementation, so the memory layer remains replaceable and
+does not flood the agent with a large tool catalog. Automatic GBrain conversation
+capture is opt-in; explicit memories require provenance.
+
 ### Composable scenario runtimes
 
 A scenario is more than a tool preset. Lumo can combine built-in capability
