@@ -58,11 +58,9 @@ from lumo.memory import (
     MemoryManager,
     Session,
     SessionManager,
-    find_relevant_memories,
     generate_session_summary,
     load_instructions,
     make_compact_boundary,
-    render_reminder,
 )
 from lumo.permissions import (
     DangerousCommandDetector,
@@ -946,10 +944,16 @@ class LumoApp(App):
             MemoryManager(
                 work_dir,
                 namespace=self.runtime_spec.scenario.id,
+                config=self.app_config.memory,
+                mcp_manager=self.mcp_manager,
             )
             if self.runtime_spec.scenario.features.memory
             else None
         )
+        if self.memory_manager is not None and self.mcp_manager is not None:
+            self.mcp_manager.set_transport_failure_handler(
+                self.memory_manager.handle_mcp_transport_failure
+            )
         self.session_manager = SessionManager(work_dir)
         self.session_manager.cleanup()
         self.session = self.session_manager.create(
@@ -1915,8 +1919,6 @@ class LumoApp(App):
             return ""
 
         provider = self._selected_provider
-        user_dir = self.memory_manager.user_mem_dir
-        project_dir = self.memory_manager.project_mem_dir
 
         async def selector(system_prompt: str, user_message: str) -> str:
             from lumo.tools.base import StreamEnd, TextDelta
@@ -1933,18 +1935,11 @@ class LumoApp(App):
             return collected
 
         try:
-            results = await asyncio.wait_for(
-                find_relevant_memories(
-                    query=query,
-                    user_mem_dir=user_dir,
-                    project_mem_dir=project_dir,
-                    recent_tools=None,
-                    already_surfaced=None,
-                    selector=selector,
-                ),
-                timeout=8.0,
+            return await self.memory_manager.prefetch(
+                query,
+                selector=selector,
+                session_id=self.session.session_id if self.session else "",
             )
-            return render_reminder(results)
         except (asyncio.TimeoutError, Exception):
             return ""
 

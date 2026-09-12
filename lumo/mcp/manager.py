@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
+from typing import Any, Callable
 
 from lumo.config import MCPServerConfig
 from lumo.mcp.client import MCPClient
@@ -40,6 +41,15 @@ class MCPManager:
     def __init__(self) -> None:
         self._configs: dict[str, MCPServerConfig] = {}
         self._clients: dict[str, MCPClient] = {}
+        self._transport_failure_handler: Callable[
+            [str, str, dict[str, Any], str], None
+        ] | None = None
+
+    def set_transport_failure_handler(
+        self,
+        handler: Callable[[str, str, dict[str, Any], str], None] | None,
+    ) -> None:
+        self._transport_failure_handler = handler
 
 
     def load_configs(self, configs: list[MCPServerConfig]) -> None:
@@ -73,7 +83,13 @@ class MCPManager:
                     if selection is not None and not _selected(tool_def.name, selection):
                         continue
                     category = _risk(tool_def.name, selection)
-                    wrapper = MCPToolWrapper(name, tool_def, client, category=category)
+                    wrapper = MCPToolWrapper(
+                        name,
+                        tool_def,
+                        client,
+                        category=category,
+                        transport_failure_handler=self._notify_transport_failure,
+                    )
                     result.tools.append(wrapper)
                     logger.info("Registered MCP tool: %s", wrapper.name)
 
@@ -83,6 +99,16 @@ class MCPManager:
                 result.errors.append(msg)
 
         return result
+
+    def _notify_transport_failure(
+        self,
+        server_name: str,
+        tool_name: str,
+        arguments: dict[str, Any],
+        error: str,
+    ) -> None:
+        if self._transport_failure_handler is not None:
+            self._transport_failure_handler(server_name, tool_name, arguments, error)
 
     async def register_all_tools(
         self,

@@ -513,7 +513,6 @@ class TestAgentHookIntegration:
     """验证 pre_tool_use 拒绝会导致工具调用被跳过。"""
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(os.name == "nt", reason="rm 命令在 Windows 上不可用")
     async def test_pre_tool_use_reject_skips_tool(self):
         from lumo.agent import Agent, ToolResultEvent
         from lumo.client import LLMClient
@@ -531,7 +530,7 @@ class TestAgentHookIntegration:
                     yield ToolCallComplete(
                         tool_id="t1",
                         tool_name="Bash",
-                        arguments={"command": "rm -rf /"},
+                        arguments={"command": "echo forbidden-hook-probe"},
                     )
                     yield StreamEnd(stop_reason="tool_use", input_tokens=10, output_tokens=5)
                 else:
@@ -539,10 +538,12 @@ class TestAgentHookIntegration:
                     yield StreamEnd(stop_reason="end_turn", input_tokens=10, output_tokens=5)
 
         hook = Hook(
-            id="block-rm",
+            id="block-command",
             event="pre_tool_use",
             action=Action(type="command", command="echo dangerous command blocked"),
-            condition=parse_condition('tool == "Bash" && args.command =~ /rm\\s+-rf/'),
+            condition=parse_condition(
+                'tool == "Bash" && args.command =~ /forbidden-hook-probe/'
+            ),
             reject=True,
         )
         engine = HookEngine([hook])

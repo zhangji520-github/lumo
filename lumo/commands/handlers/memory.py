@@ -28,7 +28,12 @@ async def handle_memory(ctx: CommandContext) -> None:
 
     elif sub == "clear":
         mm.clear()
-        ctx.ui.add_system_message("所有自动记忆已清空。")
+        if getattr(mm, "mode", "markdown") in {"gbrain", "hybrid"}:
+            ctx.ui.add_system_message(
+                "Markdown 自动记忆已清空；GBrain 事实未删除。"
+            )
+        else:
+            ctx.ui.add_system_message("所有自动记忆已清空。")
 
     elif sub == "edit":
         ctx.ui.add_system_message(

@@ -296,7 +296,7 @@ def _build_consolidation_prompt(
         "## Phase 3 — Consolidate",
         "",
         "For each thing worth remembering, write or update a memory file. "
-        "Each memory file uses YAML frontmatter with name, description, and metadata.type fields, "
+        "Each memory file uses YAML frontmatter with top-level name, description, and type fields, "
         "followed by a Markdown body.",
         "",
         "Focus on:",
