@@ -11,13 +11,21 @@
 """
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from lumo.config import MemoryConfig
 from lumo.conversation import ConversationManager, Message
+from lumo.memory.gbrain import GBrainMemoryBackend
+from lumo.memory.recall import (
+    SelectorFn,
+    find_relevant_memories,
+    render_reminder,
+)
 
 # ---------------------------------------------------------------------------
 # 常量
@@ -305,9 +313,18 @@ class MemoryManager:
     此类提供系统提示构建和 /memory 斜杠命令支持。
     """
 
-    def __init__(self, project_root: str, namespace: str | None = None) -> None:
+    def __init__(
+        self,
+        project_root: str,
+        namespace: str | None = None,
+        *,
+        config: MemoryConfig | None = None,
+        mcp_manager: Any | None = None,
+    ) -> None:
         abs_root = os.path.abspath(project_root)
         self._project_root = abs_root
+        self.config = config or MemoryConfig()
+        self.mode = self.config.mode
         # 用户级：~/.lumo/memory/ — user/feedback 类型记忆
         self._user_mem_dir = get_user_auto_mem_path()
         # 项目级：<projectRoot>/.lumo/memory/ — project/reference 类型记忆
@@ -324,6 +341,13 @@ class MemoryManager:
                 self._mem_dir, "scenarios", namespace
             )
         self._last_extraction_msg_count = 0
+        self._gbrain = GBrainMemoryBackend(
+            mcp_manager,
+            server_name=self.config.gbrain_server,
+            project_root=abs_root,
+            timeout_seconds=self.config.recall_timeout_seconds,
+            budget_tokens=self.config.recall_budget_tokens,
+        )
 
     @property
     def user_path(self) -> Path:
@@ -353,14 +377,100 @@ class MemoryManager:
         确保两个目录存在后，返回包含行为指令和 MEMORY.md 索引内容的
         '# auto memory' 段，用于注入系统提示。
         """
-        if not self._mem_dir and not self._user_mem_dir:
+        parts: list[str] = []
+        if self.mode in {"markdown", "hybrid"}:
+            if self.mode == "hybrid":
+                parts.append(
+                    "# Hybrid memory routing\n\n"
+                    "The Markdown instructions below apply to compact standing user and "
+                    "feedback memories only. Treat existing project/reference Markdown "
+                    "files as readable legacy memory, but route new searchable project "
+                    "facts, decisions, events, entities, and references to GBrain."
+                )
+            if self._user_mem_dir:
+                ensure_memory_dir_exists(self._user_mem_dir)
+            if self._mem_dir:
+                ensure_memory_dir_exists(self._mem_dir)
+            parts.append(build_memory_prompt(self._user_mem_dir, self._mem_dir))
+        if self.mode in {"gbrain", "hybrid"}:
+            parts.append(self._gbrain.prompt(hybrid=self.mode == "hybrid"))
+        return "\n\n".join(part for part in parts if part)
+
+    async def prefetch(
+        self,
+        query: str,
+        *,
+        selector: SelectorFn,
+        session_id: str = "",
+        recent_tools: list[str] | None = None,
+        already_surfaced: set[str] | None = None,
+    ) -> str:
+        """Recall from the configured backends before the first model call."""
+        tasks: list[Any] = []
+        labels: list[str] = []
+        if self.mode in {"markdown", "hybrid"}:
+            tasks.append(
+                asyncio.wait_for(
+                    find_relevant_memories(
+                        query=query,
+                        user_mem_dir=self.user_mem_dir,
+                        project_mem_dir=self.project_mem_dir,
+                        recent_tools=recent_tools,
+                        already_surfaced=already_surfaced,
+                        selector=selector,
+                    ),
+                    timeout=self.config.recall_timeout_seconds,
+                )
+            )
+            labels.append("markdown")
+        if self.mode in {"gbrain", "hybrid"}:
+            tasks.append(self._gbrain.recall(query, session_id=session_id))
+            labels.append("gbrain")
+        if not tasks:
             return ""
-        # 确保目录存在
-        if self._user_mem_dir:
-            ensure_memory_dir_exists(self._user_mem_dir)
-        if self._mem_dir:
-            ensure_memory_dir_exists(self._mem_dir)
-        return build_memory_prompt(self._user_mem_dir, self._mem_dir)
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        parts: list[str] = []
+        for label, result in zip(labels, results):
+            if isinstance(result, BaseException):
+                if label == "gbrain":
+                    parts.append(
+                        "GBrain long-term memory was unavailable for this turn. "
+                        "Do not infer that prior memory is empty."
+                    )
+                continue
+            if label == "markdown":
+                rendered = render_reminder(result)
+                if rendered:
+                    parts.append(rendered)
+            else:
+                if result.text:
+                    parts.append(result.text)
+                if result.warning:
+                    parts.append(result.warning)
+        return "\n\n".join(parts)
+
+    async def rehydrate(self, *, session_id: str = "") -> str:
+        """Restore GBrain boundary context after a conversation compaction."""
+        if self.mode not in {"gbrain", "hybrid"}:
+            return ""
+        result = await self._gbrain.rehydrate(session_id=session_id)
+        return result.text or result.warning
+
+    def handle_mcp_transport_failure(
+        self,
+        server_name: str,
+        tool_name: str,
+        arguments: dict[str, Any],
+        error: str,
+    ) -> None:
+        """Queue explicit GBrain remember calls that failed in transport."""
+        if (
+            self.mode in {"gbrain", "hybrid"}
+            and server_name == self.config.gbrain_server
+            and tool_name == "remember"
+        ):
+            self._gbrain.queue_remember(arguments, error)
 
     def load_all(self) -> list[MemoryFile]:
         """扫描两个目录中所有 .md 文件（排除 MEMORY.md），解析 frontmatter。
@@ -415,6 +525,9 @@ class MemoryManager:
 
         使用裸 LLM 调用 + 结构化输出解析，发送已有记忆 manifest 做去重。
         """
+        if not self.config.auto_capture or self.mode == "gbrain":
+            return
+
         from lumo.tools.base import StreamEnd, TextDelta
 
         recent = conversation.history[self._last_extraction_msg_count:]
@@ -439,6 +552,7 @@ class MemoryManager:
                 "Check this list before creating — update an existing file rather than creating a duplicate."
             )
 
+        conversation_text = "\n".join(conv_lines)
         prompt = (
             f"Analyze the conversation below and extract memories worth saving.\n\n"
             f"For each memory, output in this exact format:\n"
@@ -455,7 +569,7 @@ class MemoryManager:
             f"- Git history, debugging solutions\n"
             f"- Ephemeral task details\n\n"
             f"If nothing is worth saving, output NONE.{manifest_section}\n\n"
-            f"Conversation:\n{''.join(conv_lines)}"
+            f"Conversation:\n{conversation_text}"
         )
 
         extract_conv = ConversationManager()
@@ -489,6 +603,8 @@ class MemoryManager:
                 continue
             if mtype not in VALID_TYPES:
                 mtype = "reference"
+            if self.mode == "hybrid" and mtype not in _USER_LEVEL_TYPES:
+                continue
 
             # 路由到正确的目录
             target_dir = self._user_mem_dir if mtype in _USER_LEVEL_TYPES else self._mem_dir
@@ -496,7 +612,7 @@ class MemoryManager:
                 continue
             ensure_memory_dir_exists(target_dir)
 
-            content = f"---\nname: {name}\ndescription: {desc}\nmetadata:\n  type: {mtype}\n---\n\n{body}\n"
+            content = f"---\nname: {name}\ndescription: {desc}\ntype: {mtype}\n---\n\n{body}\n"
             file_path = Path(target_dir) / f"{name}.md"
             try:
                 file_path.write_text(content, encoding="utf-8")
@@ -521,16 +637,26 @@ class MemoryManager:
     def get_display_text(self) -> str:
         """返回记忆摘要文本（/memory 命令显示）。"""
         memories = self.get_memories()
-        if not memories:
-            return "当前没有任何自动记忆。"
-
-        parts: list[str] = []
+        parts: list[str] = [f"记忆模式：{self.mode}"]
+        if self.mode in {"gbrain", "hybrid"}:
+            state = "configured" if self._gbrain.configured else "unavailable"
+            parts.append(f"GBrain MCP：{self.config.gbrain_server} ({state})")
+            if self._gbrain.outbox_path.is_file():
+                try:
+                    pending = len(self._gbrain.outbox_path.read_text(encoding="utf-8").splitlines())
+                except OSError:
+                    pending = 0
+                parts.append(f"GBrain 待重试写入：{pending}")
+        parts.append("")
         parts.append(f"记忆目录：")
         parts.append(f"  用户级: {self._user_mem_dir}")
         parts.append(f"  项目级: {self._mem_dir}")
         parts.append("")
-        for line in memories:
-            parts.append(f"  {line}")
+        if memories:
+            for line in memories:
+                parts.append(f"  {line}")
+        else:
+            parts.append("  当前没有任何自动记忆。（Markdown 为空）")
         return "\n".join(parts)
 
 
@@ -571,6 +697,9 @@ def _load_dir(dir_path: str) -> list[MemoryFile]:
 
 def _extract_field(block: str, field: str) -> str:
     """从记忆提取输出的一个 block 中提取指定字段值。"""
+    if field == "MEMORY_BODY":
+        m = re.search(r"MEMORY_BODY:\s*(.*)\Z", block, re.DOTALL)
+        return m.group(1).strip() if m else ""
     m = re.search(rf"{field}:\s*(.+?)(?:\n|$)", block)
     return m.group(1).strip() if m else ""
 

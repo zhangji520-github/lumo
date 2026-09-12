@@ -188,6 +188,40 @@ class TestLoadConfigMCP:
         with pytest.raises(ConfigError, match="must have either"):
             load_config(path)
 
+    def test_hybrid_memory_config(self, tmp_path: Path) -> None:
+        path = self._write_config(tmp_path, """\
+            providers:
+              - name: test
+                protocol: openai
+                base_url: http://localhost
+                model: gpt-4o
+            memory:
+              mode: hybrid
+              gbrain_server: project-brain
+              recall_timeout_seconds: 1.5
+              recall_budget_tokens: 1200
+              auto_capture: false
+        """)
+        config = load_config(path)
+        assert config.memory.mode == "hybrid"
+        assert config.memory.gbrain_server == "project-brain"
+        assert config.memory.recall_timeout_seconds == 1.5
+        assert config.memory.recall_budget_tokens == 1200
+        assert config.memory.auto_capture is False
+
+    def test_invalid_memory_mode_errors(self, tmp_path: Path) -> None:
+        path = self._write_config(tmp_path, """\
+            providers:
+              - name: test
+                protocol: openai
+                base_url: http://localhost
+                model: gpt-4o
+            memory:
+              mode: magical
+        """)
+        with pytest.raises(ConfigError, match="memory.mode"):
+            load_config(path)
+
 # ===========================================================================
 # MCPToolWrapper
 # ===========================================================================
@@ -237,6 +271,71 @@ class TestMCPToolWrapper:
         schema = wrapper.get_schema()
         assert schema["name"] == "mcp_srv_search"
         assert schema["input_schema"] == input_schema
+
+    def test_gbrain_verbs_are_eager_and_risk_classified(self) -> None:
+        from mcp import types as mcp_types
+        from lumo.mcp.tool_wrapper import MCPToolWrapper
+
+        recall = MCPToolWrapper(
+            "gbrain",
+            mcp_types.Tool(
+                name="recall",
+                description="Recall",
+                inputSchema={"type": "object", "properties": {}},
+            ),
+            MagicMock(),
+        )
+        remember = MCPToolWrapper(
+            "gbrain",
+            mcp_types.Tool(
+                name="remember",
+                description="Remember",
+                inputSchema={"type": "object", "properties": {}},
+            ),
+            MagicMock(),
+        )
+        assert recall.should_defer is False
+        assert recall.category == "read"
+        assert remember.should_defer is False
+        assert remember.category == "write"
+
+    @pytest.mark.asyncio
+    async def test_transport_failure_callback_receives_remember_arguments(self) -> None:
+        from mcp import types as mcp_types
+        from lumo.mcp.tool_wrapper import MCPToolWrapper
+
+        client = MagicMock()
+        client.is_alive = True
+        client.call_tool = AsyncMock(side_effect=RuntimeError("connection lost"))
+        callback = MagicMock()
+        wrapper = MCPToolWrapper(
+            "gbrain",
+            mcp_types.Tool(
+                name="remember",
+                description="Remember",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "fact": {"type": "string"},
+                        "provenance": {"type": "string"},
+                    },
+                    "required": ["fact", "provenance"],
+                },
+            ),
+            client,
+            transport_failure_handler=callback,
+        )
+        params = wrapper.params_model(fact="durable", provenance="user request")
+
+        result = await wrapper.execute(params)
+
+        assert result.is_error is True
+        callback.assert_called_once_with(
+            "gbrain",
+            "remember",
+            {"fact": "durable", "provenance": "user request"},
+            "connection lost",
+        )
 
 # ===========================================================================
 # _extract_text

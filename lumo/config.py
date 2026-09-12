@@ -142,6 +142,17 @@ class SandboxAppConfig:
 
 
 @dataclass
+class MemoryConfig:
+    """Long-term memory backend and recall policy."""
+
+    mode: str = "markdown"
+    gbrain_server: str = "gbrain"
+    recall_timeout_seconds: float = 2.0
+    recall_budget_tokens: int = 2000
+    auto_capture: bool = True
+
+
+@dataclass
 class AppConfig:
     providers: list[ProviderConfig]
     permission_mode: str = "default"
@@ -153,6 +164,8 @@ class AppConfig:
     teammate_mode: str = ""
     enable_coordinator_mode: bool = False
     sandbox: SandboxAppConfig = field(default_factory=SandboxAppConfig)
+    memory: MemoryConfig = field(default_factory=MemoryConfig)
+    memory_explicit: bool = field(default=False, repr=False)
     default_scenario: str = "coding"
     default_scenario_explicit: bool = field(default=False, repr=False)
 
@@ -204,6 +217,14 @@ def _load_single_file(path: Path) -> AppConfig:
         auto_allow=sb["auto_allow"],
         network_enabled=sb["network_enabled"],
     )
+    mem = validated["memory"]
+    memory_cfg = MemoryConfig(
+        mode=mem["mode"],
+        gbrain_server=mem["gbrain_server"],
+        recall_timeout_seconds=mem["recall_timeout_seconds"],
+        recall_budget_tokens=mem["recall_budget_tokens"],
+        auto_capture=mem["auto_capture"],
+    )
 
     return AppConfig(
         providers=providers,
@@ -216,6 +237,8 @@ def _load_single_file(path: Path) -> AppConfig:
         teammate_mode=validated["teammate_mode"],
         enable_coordinator_mode=validated["enable_coordinator_mode"],
         sandbox=sandbox_cfg,
+        memory=memory_cfg,
+        memory_explicit=validated["memory_explicit"],
         default_scenario=validated["default_scenario"],
         default_scenario_explicit=validated["default_scenario_explicit"],
     )
@@ -252,6 +275,9 @@ def _merge_config(base: AppConfig, override: AppConfig) -> AppConfig:
         base.sandbox.auto_allow = True
     if override.sandbox.network_enabled:
         base.sandbox.network_enabled = True
+    if override.memory_explicit:
+        base.memory = override.memory
+        base.memory_explicit = True
     if override.default_scenario_explicit:
         base.default_scenario = override.default_scenario
         base.default_scenario_explicit = True

@@ -506,6 +506,51 @@ class Agent:
             for n in self.hook_engine.drain_notifications()
         ]
 
+    async def _recall_long_term_memory(
+        self, conversation: ConversationManager
+    ) -> str:
+        """Resolve pending or direct memory recall before the first inference."""
+        if self.memory_manager is None:
+            return ""
+
+        if self.memory_recall_task is not None and not self._memory_recall_consumed:
+            try:
+                return await self.memory_recall_task
+            except Exception:
+                return ""
+            finally:
+                self._memory_recall_consumed = True
+                self.memory_recall_task = None
+
+        query = next(
+            (
+                message.content
+                for message in reversed(conversation.history)
+                if message.role == "user" and message.content
+            ),
+            "",
+        )
+        if not query:
+            return ""
+
+        async def selector(system_prompt: str, user_message: str) -> str:
+            mini = ConversationManager()
+            mini.add_user_message(user_message)
+            collected = ""
+            async for event in self.client.stream(mini, system=system_prompt):
+                if isinstance(event, TextDelta):
+                    collected += event.text
+            return collected
+
+        try:
+            return await self.memory_manager.prefetch(
+                query,
+                selector=selector,
+                session_id=self.session_id,
+            )
+        except Exception:
+            return ""
+
     async def run(self, conversation: ConversationManager) -> AsyncIterator[AgentEvent]:
         self._current_conversation = conversation
         env_context = build_environment_context(
@@ -515,6 +560,9 @@ class Agent:
 
         memory_content = self.memory_manager.load() if self.memory_manager else ""
         conversation.inject_long_term_memory(self.instructions_content, memory_content)
+        recalled_memory = await self._recall_long_term_memory(conversation)
+        if recalled_memory:
+            conversation.add_system_reminder(recalled_memory)
 
         if self.hook_engine:
             ctx = self._build_hook_context("session_start")
@@ -624,6 +672,12 @@ class Agent:
                 conversation.inject_long_term_memory(
                     self.instructions_content, mem
                 )
+                if self.memory_manager is not None:
+                    rehydrated = await self.memory_manager.rehydrate(
+                        session_id=self.session_id
+                    )
+                    if rehydrated:
+                        conversation.add_system_reminder(rehydrated)
                 # 压缩后重新应用 budget（就地修改）
                 apply_tool_result_budget(
                     conversation, self.session_dir, self.replacement_state
@@ -1102,6 +1156,12 @@ class Agent:
             conversation.inject_long_term_memory(
                 self.instructions_content, memory_content
             )
+            if self.memory_manager is not None:
+                rehydrated = await self.memory_manager.rehydrate(
+                    session_id=self.session_id
+                )
+                if rehydrated:
+                    conversation.add_system_reminder(rehydrated)
             return CompactNotification(
                 before_tokens=result.before_tokens,
                 message=f"上下文已压缩（压缩前 {result.before_tokens:,} tokens）",
@@ -1121,14 +1181,17 @@ class Agent:
             )
             conversation.inject_environment(env_context)
 
-            if self.instructions_content:
-                memory_content = self.memory_manager.load() if self.memory_manager else ""
-                conversation.inject_long_term_memory(
-                    self.instructions_content, memory_content
-                )
+            memory_content = self.memory_manager.load() if self.memory_manager else ""
+            conversation.inject_long_term_memory(
+                self.instructions_content, memory_content
+            )
 
         if task:
             conversation.add_user_message(task)
+
+        recalled_memory = await self._recall_long_term_memory(conversation)
+        if recalled_memory:
+            conversation.add_system_reminder(recalled_memory)
 
         hook_prompts = (
             self.hook_engine.get_prompt_messages() if self.hook_engine else None
@@ -1188,6 +1251,16 @@ class Agent:
             )
             if isinstance(compact_result, CompactEvent):
                 conversation.inject_environment(env_context)
+                memory_content = self.memory_manager.load() if self.memory_manager else ""
+                conversation.inject_long_term_memory(
+                    self.instructions_content, memory_content
+                )
+                if self.memory_manager is not None:
+                    rehydrated = await self.memory_manager.rehydrate(
+                        session_id=self.session_id
+                    )
+                    if rehydrated:
+                        conversation.add_system_reminder(rehydrated)
 
             deferred_names = self.registry.get_deferred_tool_names()
             if deferred_names:

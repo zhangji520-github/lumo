@@ -259,7 +259,13 @@ class RemoteServer:
         self.memory_manager = MemoryManager(
             work_dir,
             namespace=foundation.spec.scenario.id,
+            config=self.app_config.memory,
+            mcp_manager=foundation.capabilities.mcp_manager,
         )
+        if foundation.capabilities.mcp_manager is not None:
+            foundation.capabilities.mcp_manager.set_transport_failure_handler(
+                self.memory_manager.handle_mcp_transport_failure
+            )
         self.session_manager = SessionManager(work_dir)
         self.session = self.session_manager.create(
             scenario_id=foundation.spec.scenario.id,

@@ -223,7 +223,9 @@ def format_memory_manifest(memories: list[MemoryHeader]) -> str:
         ts = datetime.fromtimestamp(
             m.mtime_ms / 1000, tz=timezone.utc
         ).strftime("%Y-%m-%dT%H:%M:%S.") + f"{m.mtime_ms % 1000:03d}Z"
-        path = m.file_path if m.file_path else m.filename
+        # The selector contract accepts relative filenames. Showing absolute
+        # paths here caused correct selections to be rejected by validation.
+        path = m.filename
         if m.description:
             lines.append(f"- {scope_tag}{type_tag}{path} ({ts}): {m.description}")
         else:

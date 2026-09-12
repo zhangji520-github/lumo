@@ -16,6 +16,7 @@ VALID_PERMISSION_MODES = {
 }
 
 VALID_TEAMMATE_MODES = {"", "in-process"}
+VALID_MEMORY_MODES = {"markdown", "gbrain", "hybrid"}
 
 DEFAULT_CONTEXT_WINDOW = 200_000
 
@@ -172,6 +173,55 @@ def validate_bool_field(value: object, field_name: str) -> bool:
     return value
 
 
+def validate_memory(raw_memory: object) -> dict:
+    """Validate the optional long-term memory backend configuration."""
+    defaults = {
+        "mode": "markdown",
+        "gbrain_server": "gbrain",
+        "recall_timeout_seconds": 2.0,
+        "recall_budget_tokens": 2000,
+        "auto_capture": True,
+    }
+    if raw_memory is None:
+        return defaults
+    if not isinstance(raw_memory, dict):
+        raise ConfigError("'memory' must be a mapping")
+
+    mode = raw_memory.get("mode", defaults["mode"])
+    if mode not in VALID_MEMORY_MODES:
+        raise ConfigError("'memory.mode' must be one of: markdown, gbrain, hybrid")
+
+    server = raw_memory.get("gbrain_server", defaults["gbrain_server"])
+    if not isinstance(server, str) or not server.strip():
+        raise ConfigError("'memory.gbrain_server' must be a non-empty string")
+
+    timeout = raw_memory.get(
+        "recall_timeout_seconds", defaults["recall_timeout_seconds"]
+    )
+    if (
+        not isinstance(timeout, (int, float))
+        or isinstance(timeout, bool)
+        or timeout <= 0
+    ):
+        raise ConfigError("'memory.recall_timeout_seconds' must be a positive number")
+
+    budget = raw_memory.get("recall_budget_tokens", defaults["recall_budget_tokens"])
+    if not isinstance(budget, int) or isinstance(budget, bool) or budget <= 0:
+        raise ConfigError("'memory.recall_budget_tokens' must be a positive integer")
+
+    auto_capture = validate_bool_field(
+        raw_memory.get("auto_capture", defaults["auto_capture"]),
+        "memory.auto_capture",
+    )
+    return {
+        "mode": mode,
+        "gbrain_server": server.strip(),
+        "recall_timeout_seconds": float(timeout),
+        "recall_budget_tokens": budget,
+        "auto_capture": auto_capture,
+    }
+
+
 def validate_worktree(raw_wt: dict | None) -> dict:
     """校验 worktree 配置段，返回清洗后的配置字典。"""
     defaults = {
@@ -259,6 +309,8 @@ def validate_config_structure(raw: object) -> dict:
         "providers": validate_providers(raw["providers"]),
         "permission_mode": validate_permission_mode(raw.get("permission_mode", "default")),
         "mcp_servers": validate_mcp_servers(raw.get("mcp_servers")),
+        "memory": validate_memory(raw.get("memory")),
+        "memory_explicit": "memory" in raw,
         "hooks": validate_hooks(raw.get("hooks")),
         "enable_fork": validate_bool_field(raw.get("enable_fork", False), "enable_fork"),
         "enable_verification_agent": validate_bool_field(

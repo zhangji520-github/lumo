@@ -4,13 +4,24 @@
 # 简历模版：jianli.xiaolinnote.com
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 from mcp import types as mcp_types
 from pydantic import BaseModel, create_model
 
 from lumo.mcp.client import MCPClient
 from lumo.tools.base import PermissionTarget, Tool, ToolCategory, ToolResult
+
+_GBRAIN_MEMORY_VERBS = {
+    "recall",
+    "remember",
+    "entity",
+    "synthesize",
+    "forget",
+    "context_pack",
+    "delta",
+}
+_GBRAIN_READ_VERBS = {"recall", "entity", "synthesize", "context_pack", "delta"}
 
 
 def _build_params_model(
@@ -65,15 +76,26 @@ class MCPToolWrapper(Tool):
         tool_def: mcp_types.Tool,
         client: MCPClient,
         category: ToolCategory = "command",
+        transport_failure_handler: Callable[
+            [str, str, dict[str, Any], str], None
+        ] | None = None,
     ) -> None:
         self._server_name = server_name
         self._tool_def = tool_def
         self._client = client
         self.name = f"mcp_{server_name}_{tool_def.name}"
         self.description = tool_def.description or tool_def.name
-        self.category = category
+        if "gbrain" in server_name.lower() and tool_def.name in _GBRAIN_READ_VERBS:
+            self.category = "read"
+        elif "gbrain" in server_name.lower() and tool_def.name in {"remember", "forget"}:
+            self.category = "write"
+        else:
+            self.category = category
         self.is_concurrency_safe = False
-        self.should_defer = True
+        self.should_defer = not (
+            "gbrain" in server_name.lower() and tool_def.name in _GBRAIN_MEMORY_VERBS
+        )
+        self._transport_failure_handler = transport_failure_handler
         self.params_model = _build_params_model(
             tool_def.name, tool_def.inputSchema
         )
@@ -100,10 +122,12 @@ class MCPToolWrapper(Tool):
 
 
     async def execute(self, params: BaseModel) -> ToolResult:
+        arguments = params.model_dump(exclude_none=True)
         if not self._client.is_alive:
             try:
                 await self._client.connect()
             except Exception as e:
+                self._notify_transport_failure(arguments, str(e))
                 return ToolResult(
                     output=f"MCP server '{self._server_name}' reconnect failed: {e}",
                     is_error=True,
@@ -111,10 +135,11 @@ class MCPToolWrapper(Tool):
 
         try:
             result = await self._client.call_tool(
-                self._tool_def.name, params.model_dump(exclude_none=True)
+                self._tool_def.name, arguments
             )
         except Exception as e:
             self._client._alive = False
+            self._notify_transport_failure(arguments, str(e))
             return ToolResult(
                 output=f"MCP tool call failed: {e}",
                 is_error=True,
@@ -122,3 +147,14 @@ class MCPToolWrapper(Tool):
 
         text = _extract_text(result.content)
         return ToolResult(output=text, is_error=bool(result.isError))
+
+    def _notify_transport_failure(
+        self, arguments: dict[str, Any], error: str
+    ) -> None:
+        if self._transport_failure_handler is not None:
+            self._transport_failure_handler(
+                self._server_name,
+                self._tool_def.name,
+                arguments,
+                error,
+            )
